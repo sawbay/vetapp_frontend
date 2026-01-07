@@ -1,44 +1,15 @@
 import { useWallet } from "@aptos-labs/wallet-adapter-react";
-import { useQuery } from "@tanstack/react-query";
-import { aptosClient } from "@/utils/aptosClient";
-import { deriveCollectionAddress, deriveVaultAddress } from "@/utils/helpers";
-import { TAPP_ACCOUNT_ADDRESS } from "@/constants";
+import { useQueryClient } from "@tanstack/react-query";
+import { useUserPositions } from "@/hooks/useUserPositions";
 import { toast } from "@/components/ui/use-toast";
-
-type PositionsQueryResult = {
-  collectionAddress: string | null;
-  tokens: {
-    token_data_id: string;
-    amount: any;
-    current_token_data?: {
-      token_name: string;
-    } | null;
-  }[];
-};
+import { aptosClient } from "@/utils/aptosClient";
+import { Button } from "./ui/button";
+import { gaugeCommit } from "@/entry-functions/gaugeCommit";
 
 export function UserPositions() {
-  const { account } = useWallet();
-
-  const { data, isFetching, error } = useQuery({
-    queryKey: ["user-positions", account?.address],
-    enabled: Boolean(account),
-    queryFn: async (): Promise<PositionsQueryResult> => {
-      if (!account) {
-        return { collectionAddress: null, tokens: [] };
-      }
-      let vaultAddress = deriveVaultAddress(TAPP_ACCOUNT_ADDRESS, "VAULT");
-      let collectionAddress = deriveCollectionAddress(vaultAddress, "TAPP").toString();
-      console.log(collectionAddress);
-
-      const tokens = await aptosClient().getAccountOwnedTokensFromCollectionAddress({
-        accountAddress: account.address,
-        collectionAddress,
-        options: { limit: 200 },
-      });
-
-      return { collectionAddress, tokens };
-    },
-  });
+  const { account, signAndSubmitTransaction } = useWallet();
+  const queryClient = useQueryClient();
+  const { data, isFetching } = useUserPositions();
 
   const tokens = data?.tokens ?? [];
   const shorten = (s: string) => `${s.slice(0, 6)}...${s.slice(-4)}`;
@@ -63,6 +34,38 @@ export function UserPositions() {
     }
     return acc;
   }, new Map<string, { name: string; tokens: typeof tokens }>());
+
+  const onCommit = async (poolAddress: string, positionAddress: string) => {
+    if (!account) {
+      return;
+    }
+
+    try {
+      const committedTransaction = await signAndSubmitTransaction(
+        gaugeCommit({
+          poolAddress,
+          positionAddress,
+        }),
+      );
+      const executedTransaction = await aptosClient().waitForTransaction({
+        transactionHash: committedTransaction.hash,
+      });
+      queryClient.invalidateQueries({ queryKey: ["position-commit", account.address] });
+      toast({
+        title: "Success",
+        description: `Transaction succeeded, hash: ${executedTransaction.hash}`,
+      });
+    } catch (error) {
+      console.error(error);
+      toast({
+        variant: "destructive",
+        title: "Error",
+        description: "Failed to commit position.",
+      });
+    } finally {
+      queryClient.invalidateQueries({ queryKey: ["user-positions", account.address] });
+    }
+  };
 
   return (
     <div className="flex flex-col gap-6">
@@ -91,16 +94,22 @@ export function UserPositions() {
                 </h3>
 
                 {group.tokens.map((token) => (
-                  <>
-                    <span key={token.token_data_id} className="pl-4">
-                      TokenID :
-                      <code 
-                        className="border border-input rounded px-2 py-1"
-                        onClick={() => onCopy(token.token_data_id)}>
-                        {shorten(token.token_data_id)}
-                      </code>
-                    </span>
-                  </>
+                  <span key={token.token_data_id} className="pl-4">
+                    TokenID :
+                    <code
+                      className="border border-input rounded px-2 py-1"
+                      onClick={() => onCopy(token.token_data_id)}>
+                      {shorten(token.token_data_id)}
+                    </code>
+                    <Button
+                      className="ml-2"
+                      size="sm"
+                      disabled={!account}
+                      onClick={() => onCommit(group.name, token.token_data_id)}
+                    >
+                      Commit
+                    </Button>
+                  </span>
                 ))}
               </div>
             ))}
