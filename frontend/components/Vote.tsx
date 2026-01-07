@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { useWallet } from "@aptos-labs/wallet-adapter-react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { GAUGE_ACCOUNT_ADDRESS, TAPP_ACCOUNT_ADDRESS, VETAPP_ACCOUNT_ADDRESS } from "@/constants";
+import { VETAPP_ACCOUNT_ADDRESS } from "@/constants";
 import { aptosClient } from "@/utils/aptosClient";
 import { formatNumber8 } from "@/utils/format";
 import { toast } from "@/components/ui/use-toast";
@@ -44,18 +44,6 @@ export function Vote() {
   const queryClient = useQueryClient();
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [adminSubmittingKey, setAdminSubmittingKey] = useState<string | null>(null);
-  const { data: tappTokenAddress } = useQuery({
-    queryKey: ["tapp-token-address"],
-    enabled: Boolean(VETAPP_ACCOUNT_ADDRESS),
-    queryFn: async (): Promise<string> => {
-      const result = await aptosClient().view<[string]>({
-        payload: {
-          function: `${VETAPP_ACCOUNT_ADDRESS}::tapp::token_address`,
-        },
-      });
-      return result[0];
-    },
-  });
   const { data, isFetching, isError } = useQuery({
     queryKey: ["helper-ve-epochs"],
     enabled: Boolean(VETAPP_ACCOUNT_ADDRESS),
