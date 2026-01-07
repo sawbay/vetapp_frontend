@@ -5,7 +5,7 @@ compatibility_date = "2024-10-01"
 assets = { directory = "dist", binding = "ASSETS" }
 
 [vars]
-PROJECT_NAME = "vetapp_frontend"
+PROJECT_NAME = "vetappfrontend"
 VITE_APP_NETWORK = "testnet"
 VITE_MODULE_TAPP_ACCOUNT_ADDRESS = "0x9754f8e58391cc09d93ae621e21150285cc287601d453131c0eb11366ae7e144"
 VITE_MODULE_VETAPP_ACCOUNT_ADDRESS = "0x28335eab93bec4c5cae305133b7e61386ad6b5177f4774749e2dad69c890117c"
