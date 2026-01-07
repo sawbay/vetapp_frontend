@@ -15,7 +15,7 @@ function App() {
       <Header />
       <div className="flex items-center justify-center flex-col">
         {connected ? (
-          <Card>
+          <Card className="w-full max-w-5xl">
             <CardContent className="flex flex-col gap-10 pt-6">
               <Vote />
               <UserLocks />
@@ -29,7 +29,7 @@ function App() {
             </CardContent>
           </Card>
         ) : (
-          <CardHeader>
+          <CardHeader className="w-full max-w-5xl">
             <CardContent className="flex flex-col gap-10 pt-6">
               <Vote />
               <CardTitle>To get started Connect a wallet</CardTitle>

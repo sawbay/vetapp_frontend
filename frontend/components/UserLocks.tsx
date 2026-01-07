@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useWallet } from "@aptos-labs/wallet-adapter-react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useLocks } from "@/hooks/useLocks";
@@ -8,6 +8,7 @@ import { VETAPP_ACCOUNT_ADDRESS } from "@/constants";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { createLock } from "@/entry-functions/createLock";
+import { vote } from "@/entry-functions/vote";
 
 type PoolVotesProps = {
   tokenAddress: string;
@@ -16,6 +17,10 @@ type PoolVotesProps = {
 };
 
 function PoolVotes({ tokenAddress, onCopy, shorten }: PoolVotesProps) {
+  const { account, signAndSubmitTransaction } = useWallet();
+  const queryClient = useQueryClient();
+  const [weightInputs, setWeightInputs] = useState<Record<string, string>>({});
+  const [isVoting, setIsVoting] = useState(false);
   const { data, isFetching } = useQuery({
     queryKey: ["pool-votes", tokenAddress],
     enabled: Boolean(VETAPP_ACCOUNT_ADDRESS),
@@ -55,6 +60,69 @@ function PoolVotes({ tokenAddress, onCopy, shorten }: PoolVotesProps) {
     },
   });
 
+  const voted = data?.voted ?? false;
+  const pools = data?.pools ?? [];
+  useEffect(() => {
+    if (pools.length === 0) {
+      return;
+    }
+    setWeightInputs((prev) => {
+      const next: Record<string, string> = {};
+      pools.forEach((pool) => {
+        next[pool.address] = prev[pool.address] ?? "";
+      });
+      return next;
+    });
+  }, [pools]);
+
+  const weightSelections = pools
+    .map((pool) => ({ address: pool.address, weight: (weightInputs[pool.address] ?? "").trim() }))
+    .filter((entry) => entry.weight !== "");
+  const totalWeight = weightSelections.reduce((sum, entry) => sum + BigInt(entry.weight), 0n);
+  const canVote = weightSelections.length > 0 && !isVoting;
+
+  const onVote = async () => {
+    if (!account || isVoting) {
+      return;
+    }
+    if (weightSelections.length === 0) {
+      toast({
+        variant: "destructive",
+        title: "Error",
+        description: "Enter a weight for at least one pool.",
+      });
+      return;
+    }
+
+    try {
+      setIsVoting(true);
+      const committedTransaction = await signAndSubmitTransaction(
+        vote({
+          tokenAddress,
+          poolsVote: weightSelections.map((entry) => entry.address),
+          weights: weightSelections.map((entry) => entry.weight),
+        }),
+      );
+      const executedTransaction = await aptosClient().waitForTransaction({
+        transactionHash: committedTransaction.hash,
+      });
+      queryClient.invalidateQueries({ queryKey: ["pool-votes", tokenAddress] });
+      toast({
+        title: "Success",
+        description: `Transaction succeeded, hash: ${executedTransaction.hash}`,
+      });
+    } catch (error) {
+      console.error(error);
+      toast({
+        variant: "destructive",
+        title: "Error",
+        description: "Failed to submit vote.",
+      });
+    } finally {
+      setIsVoting(false);
+    }
+  };
+
   if (!VETAPP_ACCOUNT_ADDRESS) {
     return <span className="text-xs text-muted-foreground">VETAPP address not configured.</span>;
   }
@@ -62,9 +130,6 @@ function PoolVotes({ tokenAddress, onCopy, shorten }: PoolVotesProps) {
   if (isFetching) {
     return <span className="text-xs text-muted-foreground">Loading votes...</span>;
   }
-
-  const voted = data?.voted ?? false;
-  const pools = data?.pools ?? [];
   if (pools.length === 0) {
     return (
       <span className="text-xs text-muted-foreground">
@@ -74,18 +139,57 @@ function PoolVotes({ tokenAddress, onCopy, shorten }: PoolVotesProps) {
   }
 
   return (
-    <div className="text-xs flex flex-col gap-1 pl-4">
+    <div className="text-xs flex flex-col gap-2 pl-4">
       <span className={voted ? "text-emerald-600" : "text-red-600"}>{voted ? "Voted" : "Not voted"}</span>
-      <ul className="list-disc pl-6">
-        {pools.map((pool) => (
-          <li key={pool.address}>
-            <code className="border border-input rounded px-2 py-1" onClick={() => onCopy(pool.address)}>
-              {shorten(pool.address)}
-            </code>{" "}
-            weight: {`${pool.weight}`}
-          </li>
-        ))}
-      </ul>
+      {voted ? (
+        <ul className="list-disc pl-6">
+          {pools.map((pool) => (
+            <li key={pool.address}>
+              <code className="border border-input rounded px-2 py-1" onClick={() => onCopy(pool.address)}>
+                {shorten(pool.address)}
+              </code>{" "}
+              weight: {`${pool.weight}`}
+            </li>
+          ))}
+        </ul>
+      ) : (
+        <>
+          <div className="text-[11px] text-muted-foreground">Leave weight empty to skip a pool.</div>
+          <ul className="flex flex-col gap-2">
+            {pools.map((pool) => (
+              <li key={pool.address} className="flex items-center justify-between gap-2">
+                <code className="border border-input rounded px-2 py-1" onClick={() => onCopy(pool.address)}>
+                  {shorten(pool.address)}
+                </code>
+                <Input
+                  className="h-7 w-24 text-xs"
+                  inputMode="numeric"
+                  placeholder="Weight"
+                  value={weightInputs[pool.address] ?? ""}
+                  onChange={(event) => {
+                    const nextValue = event.target.value;
+                    if (nextValue === "" || /^\d+$/.test(nextValue)) {
+                      setWeightInputs((prev) => ({ ...prev, [pool.address]: nextValue }));
+                    }
+                  }}
+                />
+              </li>
+            ))}
+          </ul>
+          <div className="flex items-center gap-2">
+            <span className="text-xs text-muted-foreground">Total weight</span>
+            <Input className="h-7 w-28 text-xs" readOnly value={totalWeight.toString()} />
+            <Button
+              size="sm"
+              className="h-7 px-3 text-xs"
+              disabled={!account || !canVote}
+              onClick={onVote}
+            >
+              {isVoting ? "Voting..." : "Vote"}
+            </Button>
+          </div>
+        </>
+      )}
     </div>
   );
 }
@@ -97,6 +201,9 @@ export function UserLocks() {
   const [lockValue, setLockValue] = useState("");
   const [lockDuration, setLockDuration] = useState("");
   const [isLockSubmitting, setIsLockSubmitting] = useState(false);
+  const locksScrollRef = useRef<HTMLDivElement | null>(null);
+  const lockCardRefs = useRef<(HTMLDivElement | null)[]>([]);
+  const [activeLockIndex, setActiveLockIndex] = useState(0);
 
   const tokens = data?.tokens ?? [];
   const shorten = (s: string) => `${s.slice(0, 6)}...${s.slice(-4)}`;
@@ -153,11 +260,27 @@ export function UserLocks() {
       setIsLockSubmitting(false);
     }
   };
+
+  useEffect(() => {
+    setActiveLockIndex((current) => Math.min(current, Math.max(tokens.length - 1, 0)));
+  }, [tokens.length]);
+
+  const scrollToLock = (index: number) => {
+    if (tokens.length === 0) {
+      return;
+    }
+    const nextIndex = Math.max(0, Math.min(index, tokens.length - 1));
+    const target = lockCardRefs.current[nextIndex];
+    if (target) {
+      target.scrollIntoView({ behavior: "smooth", inline: "start", block: "nearest" });
+    }
+    setActiveLockIndex(nextIndex);
+  };
   return (
-    <div className="flex flex-col gap-6">
-      <div className="flex items-center justify-between gap-4">
+    <div className="flex w-full min-w-0 flex-col gap-6">
+      <div className="flex min-w-0 items-center justify-between gap-4">
         <h4 className="text-lg font-medium">User locks</h4>
-        <div className="text-xs text-muted-foreground">
+        <div className="min-w-0 break-all text-xs text-muted-foreground">
           Collection address: {data?.collectionAddress ?? "unknown"}
         </div>
       </div>
@@ -198,22 +321,56 @@ export function UserLocks() {
         <p className="text-xs text-muted-foreground">No tokens found for this collection.</p>
       ) : null}
       {tokens.length > 0 ? (
-        <div className="text-xs flex flex-col gap-3">
-          <div className="flex flex-col gap-2">
-            {tokens.map((token) => (
-              <div key={token.token_data_id} className="flex flex-col gap-2">
-                <span>
-                  {token.current_token_data?.token_name} :
-                  <code
-                    className="border border-input rounded px-2 py-1"
-                    onClick={() => onCopy(token.token_data_id)}
-                  >
-                    {shorten(token.token_data_id)}
-                  </code>
-                </span>
-                <PoolVotes tokenAddress={token.token_data_id} onCopy={onCopy} shorten={shorten} />
-              </div>
-            ))}
+        <div className="text-xs flex min-w-0 flex-col gap-3">
+          <div className="flex items-center justify-between gap-2">
+            <div className="text-sm font-medium">Your locks</div>
+            <div className="flex gap-2">
+              <Button
+                size="sm"
+                className="h-7 px-2 text-xs"
+                disabled={tokens.length <= 1 || activeLockIndex === 0}
+                onClick={() => scrollToLock(activeLockIndex - 1)}
+              >
+                Prev
+              </Button>
+              <Button
+                size="sm"
+                className="h-7 px-2 text-xs"
+                disabled={tokens.length <= 1 || activeLockIndex >= tokens.length - 1}
+                onClick={() => scrollToLock(activeLockIndex + 1)}
+              >
+                Next
+              </Button>
+            </div>
+          </div>
+          <div className="w-[inherit] max-w-full overflow-hidden">
+            <div
+              ref={locksScrollRef}
+              className="flex w-full min-w-0 flex-nowrap gap-3 overflow-x-auto pb-2 scroll-smooth snap-x snap-mandatory"
+            >
+              {tokens.map((token, index) => (
+                <div
+                  key={token.token_data_id}
+                  ref={(node) => {
+                    lockCardRefs.current[index] = node;
+                  }}
+                  className="min-w-[240px] max-w-[280px] shrink-0 snap-start rounded-md border border-input bg-card p-3"
+                >
+                  <div className="flex flex-col gap-2">
+                    <span>
+                      {token.current_token_data?.token_name} :
+                      <code
+                        className="border border-input rounded px-2 py-1"
+                        onClick={() => onCopy(token.token_data_id)}
+                      >
+                        {shorten(token.token_data_id)}
+                      </code>
+                    </span>
+                    <PoolVotes tokenAddress={token.token_data_id} onCopy={onCopy} shorten={shorten} />
+                  </div>
+                </div>
+              ))}
+            </div>
           </div>
         </div>
       ) : null}
