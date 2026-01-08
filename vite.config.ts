@@ -13,6 +13,7 @@ const getGitValue = (command: string) => {
 
 const commitHash = getGitValue("git rev-parse --short HEAD");
 const commitMessage = getGitValue("git log -1 --pretty=%s");
+const commitTimestamp = getGitValue("git log -1 --pretty=%cI");
 
 export default defineConfig({
   build: {
@@ -43,5 +44,6 @@ export default defineConfig({
   define: {
     __COMMIT_HASH__: JSON.stringify(commitHash),
     __COMMIT_MESSAGE__: JSON.stringify(commitMessage),
+    __COMMIT_TIMESTAMP__: JSON.stringify(commitTimestamp),
   },
 });

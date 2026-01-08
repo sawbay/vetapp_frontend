@@ -3,6 +3,7 @@ import { AMM_ACCOUNT_ADDRESS, GAUGE_ACCOUNT_ADDRESS } from "@/constants";
 import { aptosClient } from "@/utils/aptosClient";
 import { formatNumber8 } from "@/utils/format";
 import { Button } from "@/components/ui/button";
+import { Card, CardContent } from "@/components/ui/card";
 
 type PoolToken = {
   token_data_id: string;
@@ -38,45 +39,48 @@ export function GaugePool({
   isWalletReady,
 }: GaugePoolProps) {
   return (
-    <div className="text-xs flex flex-col gap-2">
-      <h3>
-        <span>Pool: </span>
-        <code className="border border-input rounded px-2 py-1" onClick={() => onCopy(poolAddress)}>
-          {shorten(poolAddress)}
-        </code>
-        <Button
-          size="sm"
-          className="h-7 px-2 text-xs"
-          disabled={!isWalletReady || isSubmitting}
-          onClick={() => onOpenBribe(poolAddress, poolKey)}
-        >
-          Add Bribe
-        </Button>
-      </h3>
-      <RewardPerToken poolAddress={poolAddress} />
-      <div className="flex flex-wrap items-center gap-2">
-        
-      </div>
-      {tokens.length === 0 ? (
-        <p className="text-muted-foreground">No positions for this pool.</p>
-      ) : (
-        <div className="flex flex-col gap-2">
-          {tokens.map((token) => (
-            <PoolTokenRow
-              key={token.token_data_id}
-              token={token}
-              onCopy={onCopy}
-              onUncommit={onUncommit}
-              onClaimReward={onClaimReward}
-              poolAddress={poolAddress}
-              shorten={shorten}
-              isSubmitting={isSubmitting}
-              isWalletReady={isWalletReady}
-            />
-          ))}
-        </div>
-      )}
-    </div>
+    <Card className="text-xs border-muted-foreground shadow-sm">
+      <CardContent className="flex flex-col gap-2">
+        <h3 className="flex items-center gap-2">
+          <span>Pool: </span>
+          <code
+            className="border border-input rounded px-2 py-1"
+            onClick={() => onCopy(poolAddress)}
+          >
+            {shorten(poolAddress)}
+          </code>
+          <Button
+            size="sm"
+            className="h-7 px-2 text-xs"
+            disabled={!isWalletReady || isSubmitting}
+            onClick={() => onOpenBribe(poolAddress, poolKey)}
+          >
+            Add Bribe
+          </Button>
+        </h3>
+        <RewardPerToken poolAddress={poolAddress} />
+        <div className="flex flex-wrap items-center gap-2"></div>
+        {tokens.length === 0 ? (
+          <p className="text-muted-foreground">No positions for this pool.</p>
+        ) : (
+          <div className="flex flex-col gap-2">
+            {tokens.map((token) => (
+              <PoolTokenRow
+                key={token.token_data_id}
+                token={token}
+                onCopy={onCopy}
+                onUncommit={onUncommit}
+                onClaimReward={onClaimReward}
+                poolAddress={poolAddress}
+                shorten={shorten}
+                isSubmitting={isSubmitting}
+                isWalletReady={isWalletReady}
+              />
+            ))}
+          </div>
+        )}
+      </CardContent>
+    </Card>
   );
 }
 
