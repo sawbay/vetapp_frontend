@@ -44,7 +44,7 @@ export function usePool() {
           function: `${VETAPP_ACCOUNT_ADDRESS}::helper_ve::pool_metas`,
         },
       });
-      return (result[0] ?? []).map((meta) => {
+      return (result[0] ?? []).filter(meta => (meta.hook_type as any) > 1).map((meta) => {
         const poolAddr = typeof meta?.pool_addr === "string" ? meta.pool_addr : "";
         const reserves = Array.isArray(meta?.reserves) ? meta.reserves : [];
         const hookTypeRaw = meta?.hook_type;

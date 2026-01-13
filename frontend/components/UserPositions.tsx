@@ -15,7 +15,7 @@ export function UserPositions() {
   const queryClient = useQueryClient();
   const [isSubmitting, setIsSubmitting] = useState(false);
   const { data, isFetching } = useUserPositions();
-  const { getPoolMetaSummary } = usePool();
+  const { data: poolMetas, getPoolMetaSummary } = usePool();
 
   const tokens = data?.tokens ?? [];
   const shorten = (s: string) => `${s.slice(0, 6)}...${s.slice(-4)}`;
@@ -28,18 +28,11 @@ export function UserPositions() {
       });
     }
   };
-  const groupedTokens = tokens.reduce((acc, token) => {
+  const getPoolAddressFromToken = (token: PoolToken) => {
     let name = token.current_token_data?.token_name ?? token.token_data_id;
     name = name.split("_")[0].slice(1);
-    const key = shorten(name);
-    const entry = acc.get(key);
-    if (entry) {
-      entry.tokens.push(token);
-    } else {
-      acc.set(key, { name, tokens: [token] });
-    }
-    return acc;
-  }, new Map<string, { name: string; tokens: typeof tokens }>());
+    return name;
+  };
 
   const onCommit = async (poolAddress: string, positionAddress: string) => {
     if (!account || isSubmitting) {
@@ -89,35 +82,47 @@ export function UserPositions() {
       {tokens.length > 0 ? (
         <div className="text-sm flex flex-col gap-3">
           <div className="flex flex-col gap-2">
-            {[...groupedTokens.entries()].map(([key, group]) => (
-              <div key={key} className="flex flex-col gap-1">
-                <h3>
-                  <span>Pool: </span>
-                  <code
-                    className="border border-input rounded px-2 py-1"
-                    onClick={() => onCopy(group.name)}
-                  >
-                    {key}
-                  </code>
-                  <span className="text-xs text-muted-foreground">
-                    {getPoolMetaSummary(group.name)}
-                  </span>
-                </h3>
+            {(poolMetas ?? []).map((poolMeta) => {
+              if (!poolMeta.pool_addr) {
+                return null;
+              }
+              const poolAddress = poolMeta.pool_addr;
+              const poolTokens = tokens.filter(
+                (token) => getPoolAddressFromToken(token) === poolAddress,
+              );
+              return (
+                <div key={poolAddress} className="flex flex-col gap-1">
+                  <h3>
+                    <span>Pool: </span>
+                    <code
+                      className="border border-input rounded px-2 py-1"
+                      onClick={() => onCopy(poolAddress)}
+                    >
+                      {shorten(poolAddress)}
+                    </code>
+                    <span className="text-xs text-muted-foreground">
+                      {getPoolMetaSummary(poolAddress)}
+                    </span>
+                  </h3>
 
-                {group.tokens.map((token) => (
-                  <PoolTokenRow
-                    key={token.token_data_id}
-                    token={token}
-                    onCopy={onCopy}
-                    onCommit={onCommit}
-                    poolAddress={group.name}
-                    shorten={shorten}
-                    isSubmitting={isSubmitting}
-                    isWalletReady={Boolean(account)}
-                  />
-                ))}
-              </div>
-            ))}
+                  {poolTokens.map((token) => (
+                    <PoolTokenRow
+                      key={token.token_data_id}
+                      token={token}
+                      onCopy={onCopy}
+                      onCommit={onCommit}
+                      poolAddress={poolAddress}
+                      shorten={shorten}
+                      isSubmitting={isSubmitting}
+                      isWalletReady={Boolean(account)}
+                    />
+                  ))}
+                  {poolTokens.length === 0 ? (
+                    <div className="text-xs text-muted-foreground">No positions in this pool.</div>
+                  ) : null}
+                </div>
+              );
+            })}
           </div>
         </div>
       ) : null}
