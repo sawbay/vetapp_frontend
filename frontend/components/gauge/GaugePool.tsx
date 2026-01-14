@@ -89,6 +89,7 @@ export function GaugePool({
           <CommittedPositions
             tokens={tokens}
             poolAddress={poolAddress}
+            poolType={poolType}
             onCopy={onCopy}
             onUncommit={onUncommit}
             onClaimReward={onClaimReward}

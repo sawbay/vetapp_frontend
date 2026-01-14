@@ -1,13 +1,14 @@
 import { useQuery } from "@tanstack/react-query";
-import { AMM_ACCOUNT_ADDRESS, GAUGE_ACCOUNT_ADDRESS } from "@/constants";
+import { AMM_ACCOUNT_ADDRESS, CLMM_ACCOUNT_ADDRESS, GAUGE_ACCOUNT_ADDRESS, STABLE_ACCOUNT_ADDRESS } from "@/constants";
 import { aptosClient } from "@/utils/aptosClient";
 import { formatNumber8 } from "@/utils/format";
 import { Button } from "@/components/ui/button";
-import { PoolToken } from "@/components/gauge/types";
+import { PoolToken, PoolType } from "@/components/gauge/types";
 
 type CommittedPositionsProps = {
   tokens: PoolToken[];
   poolAddress: string;
+  poolType: PoolType;
   onCopy: (value: string) => void;
   onUncommit: (poolAddress: string, positionAddress: string) => void;
   onClaimReward: (poolAddress: string, positionAddress: string) => void;
@@ -19,6 +20,7 @@ type CommittedPositionsProps = {
 export function CommittedPositions({
   tokens,
   poolAddress,
+  poolType,
   onCopy,
   onUncommit,
   onClaimReward,
@@ -37,6 +39,7 @@ export function CommittedPositions({
             onUncommit={onUncommit}
             onClaimReward={onClaimReward}
             poolAddress={poolAddress}
+            poolType={poolType}
             shorten={shorten}
             isSubmitting={isSubmitting}
             isWalletReady={isWalletReady}
@@ -53,6 +56,7 @@ type PoolTokenRowProps = {
   onUncommit: (poolAddress: string, positionAddress: string) => void;
   onClaimReward: (poolAddress: string, positionAddress: string) => void;
   poolAddress: string;
+  poolType: PoolType;
   shorten: (value: string) => string;
   isSubmitting: boolean;
   isWalletReady: boolean;
@@ -64,6 +68,7 @@ function PoolTokenRow({
   onUncommit,
   onClaimReward,
   poolAddress,
+  poolType,
   shorten,
   isSubmitting,
   isWalletReady,
@@ -84,14 +89,20 @@ function PoolTokenRow({
       return result[0];
     },
   });
-  const canFetchClaimable = Boolean(AMM_ACCOUNT_ADDRESS && Number.isFinite(positionIdx));
+  const claimableAccountAddress =
+    poolType === PoolType.STABLE
+      ? STABLE_ACCOUNT_ADDRESS
+      : poolType === PoolType.CLMM
+        ? CLMM_ACCOUNT_ADDRESS
+        : AMM_ACCOUNT_ADDRESS;
+  const canFetchClaimable = Boolean(claimableAccountAddress && Number.isFinite(positionIdx));
   const { data: claimableData, isFetching: claimableFetching } = useQuery({
-    queryKey: ["claimable", poolAddress, positionIdx],
+    queryKey: ["claimable", poolAddress, positionIdx, claimableAccountAddress ?? "", poolType],
     enabled: canFetchClaimable,
     queryFn: async (): Promise<Array<string | number | bigint>> => {
       const result = await aptosClient().view<[Array<string | number | bigint>]>({
         payload: {
-          function: `${AMM_ACCOUNT_ADDRESS}::amm::claimable`,
+          function: `${claimableAccountAddress}::${poolType}::claimable`,
           functionArguments: [poolAddress, positionIdx],
         },
       });
