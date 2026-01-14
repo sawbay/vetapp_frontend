@@ -2,6 +2,8 @@ import { useState } from "react";
 import { useWallet } from "@aptos-labs/wallet-adapter-react";
 import { useQueryClient } from "@tanstack/react-query";
 import { useGauge } from "@/hooks/useGauge";
+import { usePool } from "@/hooks/usePool";
+import { useUserPositions } from "@/hooks/useUserPositions";
 import { useWalletFungibleTokens } from "@/hooks/useWalletTokenAddresses";
 import { AMM_ACCOUNT_ADDRESS, VETAPP_ACCOUNT_ADDRESS } from "@/constants";
 import { toast } from "@/components/ui/use-toast";
@@ -9,6 +11,8 @@ import { aptosClient } from "@/utils/aptosClient";
 import { GaugePool } from "@/components/gauge/GaugePool";
 import { AddBribe } from "@/components/gauge/AddBribe";
 import { toastTransactionSuccess } from "@/utils/transactionToast";
+import { PoolToken } from "@/components/gauge/types";
+import { gaugeCommit } from "@/entry-functions/gaugeCommit";
 import { gaugeUncommit } from "@/entry-functions/gaugeUncommit";
 
 export function Gauge() {
@@ -24,6 +28,8 @@ export function Gauge() {
     Record<string, { tokenAddress: string; amount: string }>
   >({});
   const { data, isFetching, isError } = useGauge();
+  const { getPoolMetaSummary } = usePool();
+  const { data: userPositions } = useUserPositions();
   const { data: walletFungibleTokens = [] } = useWalletFungibleTokens();
   const shorten = (s: string) => `${s.slice(0, 6)}...${s.slice(-4)}`;
   const onCopy = async (data: string) => {
@@ -43,6 +49,43 @@ export function Gauge() {
     setIsBribeDialogOpen(open);
     if (!open) {
       setActiveBribePool(null);
+    }
+  };
+
+  const getPoolAddressFromToken = (token: PoolToken) => {
+    let name = token.current_token_data?.token_name ?? token.token_data_id;
+    name = name.split("_")[0].slice(1);
+    return name;
+  };
+
+  const onCommit = async (poolAddress: string, positionAddress: string) => {
+    if (!account || isSubmitting) {
+      return;
+    }
+
+    try {
+      setIsSubmitting(true);
+      const committedTransaction = await signAndSubmitTransaction(
+        gaugeCommit({
+          poolAddress,
+          positionAddress,
+        }),
+      );
+      const executedTransaction = await aptosClient().waitForTransaction({
+        transactionHash: committedTransaction.hash,
+      });
+      queryClient.invalidateQueries({ queryKey: ["position-commit", account.address] });
+      toastTransactionSuccess(executedTransaction.hash);
+    } catch (error) {
+      console.error(error);
+      toast({
+        variant: "destructive",
+        title: "Error",
+        description: "Failed to commit position.",
+      });
+    } finally {
+      setIsSubmitting(false);
+      queryClient.invalidateQueries({ queryKey: ["user-positions", account.address] });
     }
   };
 
@@ -191,6 +234,7 @@ export function Gauge() {
   const isLoading = isFetching;
   const poolList = data?.pools ?? [];
   const poolTokens = data?.committedPositions ?? {};
+  const userTokens = userPositions?.tokens ?? [];
   const activeBribeKey = activeBribePool?.poolKey ?? "";
   const activeBribeInput = activeBribeKey ? bribeInputs[activeBribeKey] ?? { tokenAddress: "", amount: "" } : { tokenAddress: "", amount: "" };
 
@@ -210,14 +254,20 @@ export function Gauge() {
             const poolAddress = `${pool}`;
             const poolKey = poolAddress.toLowerCase();
             const tokens = poolTokens[poolKey] ?? [];
+            const myPositions = userTokens.filter(
+              (token) => getPoolAddressFromToken(token) === poolAddress,
+            );
 
             return (
               <GaugePool
                 key={poolKey}
                 poolAddress={poolAddress}
                 poolKey={poolKey}
+                poolMetaSummary={getPoolMetaSummary(poolAddress)}
                 tokens={tokens}
+                myPositions={myPositions}
                 onCopy={onCopy}
+                onCommit={onCommit}
                 onUncommit={onUncommit}
                 onClaimReward={onClaimReward}
                 onOpenBribe={openBribeDialog}

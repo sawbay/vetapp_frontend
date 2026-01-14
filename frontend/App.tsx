@@ -2,7 +2,6 @@ import { useWallet } from "@aptos-labs/wallet-adapter-react";
 // Internal Components
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Header } from "@/components/Header";
-import { UserPositions } from "@/components/UserPositions";
 import { UserLocks } from "./components/UserLocks";
 import { Vote } from "@/components/Vote";
 import { Gauge } from "@/components/gauge/Gauge";
@@ -19,7 +18,6 @@ function App() {
             <CardContent className="flex flex-col gap-10 pt-6">
               <Vote />
               <UserLocks />
-              <UserPositions />
               <Gauge />
               {/* <WalletDetails /> */}
               {/* <NetworkInfo />

@@ -4,13 +4,17 @@ import { aptosClient } from "@/utils/aptosClient";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { CommittedPositions } from "@/components/gauge/CommittedPositions";
+import { MyPositions } from "@/components/gauge/MyPositions";
 import { PoolToken } from "@/components/gauge/types";
 
 type GaugePoolProps = {
   poolAddress: string;
   poolKey: string;
+  poolMetaSummary: string;
   tokens: PoolToken[];
+  myPositions: PoolToken[];
   onCopy: (value: string) => void;
+  onCommit: (poolAddress: string, positionAddress: string) => void;
   onUncommit: (poolAddress: string, positionAddress: string) => void;
   onClaimReward: (poolAddress: string, positionAddress: string) => void;
   onOpenBribe: (poolAddress: string, poolKey: string) => void;
@@ -22,8 +26,11 @@ type GaugePoolProps = {
 export function GaugePool({
   poolAddress,
   poolKey,
+  poolMetaSummary,
   tokens,
+  myPositions,
   onCopy,
+  onCommit,
   onUncommit,
   onClaimReward,
   onOpenBribe,
@@ -50,9 +57,26 @@ export function GaugePool({
           >
             Add Bribe
           </Button>
+          <span className="text-xs text-muted-foreground">{poolMetaSummary}</span>
         </h3>
 
         <RewardPerToken poolAddress={poolAddress} />
+
+        <h3><b>My Positions</b></h3>
+        <div className="flex flex-wrap items-center gap-2"></div>
+        {myPositions.length === 0 ? (
+          <p className="text-muted-foreground">No positions for this pool.</p>
+        ) : (
+          <MyPositions
+            tokens={myPositions}
+            poolAddress={poolAddress}
+            onCopy={onCopy}
+            onCommit={onCommit}
+            shorten={shorten}
+            isSubmitting={isSubmitting}
+            isWalletReady={isWalletReady}
+          />
+        )}
 
         <h3><b>Committed Positions</b></h3>
         <div className="flex flex-wrap items-center gap-2"></div>
