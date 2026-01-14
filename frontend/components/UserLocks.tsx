@@ -10,6 +10,7 @@ import { Button } from "@/components/ui/button";
 import { createLock } from "@/entry-functions/createLock";
 import { vote } from "@/entry-functions/vote";
 import { toastTransactionSuccess } from "@/utils/transactionToast";
+import { formatNumber8 } from "@/utils/format";
 import { useGauge } from "@/hooks/useGauge";
 
 type PoolVotesProps = {
@@ -32,18 +33,11 @@ type LockedBalance = {
   is_permanent: boolean;
 };
 
-const getLockTokenId = (token: LockToken) => {
-  const name = token.current_token_data?.token_name ?? "";
-  const nameMatch = name.match(/\d+/);
-  if (nameMatch) {
-    return nameMatch[0];
-  }
-  const idMatch = token.token_data_id.match(/\d+/);
-  return idMatch ? idMatch[0] : null;
-};
+const getLockTokenId = (token: LockToken) => token.token_data_id;
 
 function LockInfo({ token }: { token: LockToken }) {
   const tokenId = getLockTokenId(token);
+  
   const { data, isFetching } = useQuery({
     queryKey: ["lock-info", token.token_data_id, tokenId],
     enabled: Boolean(VETAPP_ACCOUNT_ADDRESS && tokenId),
@@ -53,7 +47,23 @@ function LockInfo({ token }: { token: LockToken }) {
       }
       const result = await aptosClient().view<[LockedBalance]>({
         payload: {
-          function: `${VETAPP_ACCOUNT_ADDRESS}::vetapp::locked`,
+          function: `${VETAPP_ACCOUNT_ADDRESS}::vetapp::locked_balance`,
+          functionArguments: [tokenId],
+        },
+      });
+      return result[0] ?? null;
+    },
+  });
+  const { data: votingPower, isFetching: isVotingPowerFetching } = useQuery({
+    queryKey: ["voting-power", token.token_data_id, tokenId],
+    enabled: Boolean(VETAPP_ACCOUNT_ADDRESS && tokenId),
+    queryFn: async (): Promise<string | number | bigint | null> => {
+      if (!VETAPP_ACCOUNT_ADDRESS || !tokenId) {
+        return null;
+      }
+      const result = await aptosClient().view<[string | number | bigint]>({
+        payload: {
+          function: `${VETAPP_ACCOUNT_ADDRESS}::vetapp::balance_of_nft`,
           functionArguments: [tokenId],
         },
       });
@@ -70,10 +80,29 @@ function LockInfo({ token }: { token: LockToken }) {
   if (!data) {
     return <span className="text-[11px] text-muted-foreground">Lock info unavailable.</span>;
   }
+  const endSeconds = Number(data.end);
+  const endDisplay = Number.isFinite(endSeconds)
+    ? new Date(endSeconds * 1000).toLocaleString(undefined, {
+        month: "short",
+        day: "numeric",
+        year: "numeric",
+        hour: "numeric",
+        minute: "2-digit",
+      })
+    : `${data.end}`;
+  const isExpired = !data.is_permanent && Number.isFinite(endSeconds) && endSeconds * 1000 < Date.now();
+  const votingPowerDisplay =
+    votingPower == null ? "unknown" : formatNumber8(votingPower);
   return (
     <div className="text-[11px] text-muted-foreground flex flex-col gap-1">
-      <span>Amount: {`${data.amount}`}</span>
-      <span>End: {data.is_permanent ? "Permanent" : `${data.end}`}</span>
+      <span>Amount: {formatNumber8(data.amount)} $TAPP</span>
+      <span>
+        End: {data.is_permanent ? "Permanent" : endDisplay}{" "}
+        {isExpired ? <span className="text-red-500">(Expired)</span> : null}
+      </span>
+      <span>
+        Voting power: {isVotingPowerFetching ? "Loading..." : votingPowerDisplay}
+      </span>
     </div>
   );
 }
