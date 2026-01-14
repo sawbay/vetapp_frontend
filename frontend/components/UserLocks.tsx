@@ -18,6 +18,66 @@ type PoolVotesProps = {
   shorten: (value: string) => string;
 };
 
+type LockToken = {
+  token_data_id: string;
+  amount: any;
+  current_token_data?: {
+    token_name: string;
+  } | null;
+};
+
+type LockedBalance = {
+  amount: string | number | bigint;
+  end: string | number | bigint;
+  is_permanent: boolean;
+};
+
+const getLockTokenId = (token: LockToken) => {
+  const name = token.current_token_data?.token_name ?? "";
+  const nameMatch = name.match(/\d+/);
+  if (nameMatch) {
+    return nameMatch[0];
+  }
+  const idMatch = token.token_data_id.match(/\d+/);
+  return idMatch ? idMatch[0] : null;
+};
+
+function LockInfo({ token }: { token: LockToken }) {
+  const tokenId = getLockTokenId(token);
+  const { data, isFetching } = useQuery({
+    queryKey: ["lock-info", token.token_data_id, tokenId],
+    enabled: Boolean(VETAPP_ACCOUNT_ADDRESS && tokenId),
+    queryFn: async (): Promise<LockedBalance | null> => {
+      if (!VETAPP_ACCOUNT_ADDRESS || !tokenId) {
+        return null;
+      }
+      const result = await aptosClient().view<[LockedBalance]>({
+        payload: {
+          function: `${VETAPP_ACCOUNT_ADDRESS}::vetapp::locked`,
+          functionArguments: [tokenId],
+        },
+      });
+      return result[0] ?? null;
+    },
+  });
+
+  if (!tokenId) {
+    return <span className="text-[11px] text-muted-foreground">Lock info unavailable.</span>;
+  }
+  if (isFetching) {
+    return <span className="text-[11px] text-muted-foreground">Loading lock info...</span>;
+  }
+  if (!data) {
+    return <span className="text-[11px] text-muted-foreground">Lock info unavailable.</span>;
+  }
+  return (
+    <div className="text-[11px] text-muted-foreground flex flex-col gap-1">
+      <span>Amount: {`${data.amount}`}</span>
+      <span>End: {data.is_permanent ? "Permanent" : `${data.end}`}</span>
+    </div>
+  );
+}
+
 function PoolVotes({ tokenAddress, onCopy, shorten }: PoolVotesProps) {
   const { account, signAndSubmitTransaction } = useWallet();
   const { data: gaugeData, isFetching: isGaugeFetching } = useGauge();
@@ -208,7 +268,7 @@ export function UserLocks() {
   const lockCardRefs = useRef<(HTMLDivElement | null)[]>([]);
   const [activeLockIndex, setActiveLockIndex] = useState(0);
 
-  const tokens = data?.tokens ?? [];
+  const tokens: LockToken[] = data?.tokens ?? [];
   const shorten = (s: string) => `${s.slice(0, 6)}...${s.slice(-4)}`;
   const onCopy = async (data: string) => {
     if (navigator?.clipboard?.writeText) {
@@ -366,6 +426,7 @@ export function UserLocks() {
                         {shorten(token.token_data_id)}
                       </code>
                     </span>
+                    <LockInfo token={token} />
                     <PoolVotes tokenAddress={token.token_data_id} onCopy={onCopy} shorten={shorten} />
                   </div>
                 </div>

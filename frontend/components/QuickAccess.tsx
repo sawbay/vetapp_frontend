@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { useWallet } from "@aptos-labs/wallet-adapter-react";
 import { useQuery } from "@tanstack/react-query";
-import { AMM_ACCOUNT_ADDRESS, GAUGE_ACCOUNT_ADDRESS, STABLE_ACCOUNT_ADDRESS, TAPP_ACCOUNT_ADDRESS, VETAPP_ACCOUNT_ADDRESS } from "@/constants";
+import { AMM_ACCOUNT_ADDRESS, CLMM_ACCOUNT_ADDRESS, GAUGE_ACCOUNT_ADDRESS, STABLE_ACCOUNT_ADDRESS, TAPP_ACCOUNT_ADDRESS, VETAPP_ACCOUNT_ADDRESS } from "@/constants";
 import { toast } from "@/components/ui/use-toast";
 import { faucetQuickMint } from "@/entry-functions/faucetQuickMint";
 import { mintTapp } from "@/entry-functions/mintTapp";
@@ -95,6 +95,14 @@ export function QuickAccess() {
         rel="noreferrer"
       >
         AMM
+      </a>
+      <a
+        className="underline underline-offset-4"
+        href={`https://explorer.aptoslabs.com/account/${CLMM_ACCOUNT_ADDRESS ?? ""}`}
+        target="_blank"
+        rel="noreferrer"
+      >
+        CLMM
       </a>
       <a
         className="underline underline-offset-4"
