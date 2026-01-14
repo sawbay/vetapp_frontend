@@ -16,6 +16,7 @@ type GaugePoolProps = {
   myPositions: PoolToken[];
   onCopy: (value: string) => void;
   onCommit: (poolAddress: string, positionAddress: string) => void;
+  onClaimFees: (poolAddress: string, positionAddress: string) => void;
   onUncommit: (poolAddress: string, positionAddress: string) => void;
   onClaimReward: (poolAddress: string, positionAddress: string) => void;
   onOpenBribe: (poolAddress: string, poolKey: string) => void;
@@ -33,6 +34,7 @@ export function GaugePool({
   myPositions,
   onCopy,
   onCommit,
+  onClaimFees,
   onUncommit,
   onClaimReward,
   onOpenBribe,
@@ -75,6 +77,7 @@ export function GaugePool({
             poolType={poolType}
             onCopy={onCopy}
             onCommit={onCommit}
+            onClaimFees={onClaimFees}
             shorten={shorten}
             isSubmitting={isSubmitting}
             isWalletReady={isWalletReady}

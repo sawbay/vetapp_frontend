@@ -13,6 +13,7 @@ import { AddBribe } from "@/components/gauge/AddBribe";
 import { toastTransactionSuccess } from "@/utils/transactionToast";
 import { PoolType, PoolToken } from "@/components/gauge/types";
 import { gaugeCommit } from "@/entry-functions/gaugeCommit";
+import { claimFees } from "@/entry-functions/claimFees";
 import { gaugeUncommit } from "@/entry-functions/gaugeUncommit";
 
 export function Gauge() {
@@ -113,6 +114,36 @@ export function Gauge() {
         variant: "destructive",
         title: "Error",
         description: "Failed to uncommit position.",
+      });
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  const onClaimFees = async (poolAddress: string, positionAddress: string) => {
+    if (!account || isSubmitting) {
+      return;
+    }
+
+    try {
+      setIsSubmitting(true);
+      const committedTransaction = await signAndSubmitTransaction(
+        claimFees({
+          poolAddress,
+          positionAddress,
+        }),
+      );
+      const executedTransaction = await aptosClient().waitForTransaction({
+        transactionHash: committedTransaction.hash,
+      });
+      queryClient.invalidateQueries({ queryKey: ["my-claimable", poolAddress] });
+      toastTransactionSuccess(executedTransaction.hash);
+    } catch (error) {
+      console.error(error);
+      toast({
+        variant: "destructive",
+        title: "Error",
+        description: "Failed to claim fees.",
       });
     } finally {
       setIsSubmitting(false);
@@ -279,6 +310,7 @@ export function Gauge() {
                 myPositions={myPositions}
                 onCopy={onCopy}
                 onCommit={onCommit}
+                onClaimFees={onClaimFees}
                 onUncommit={onUncommit}
                 onClaimReward={onClaimReward}
                 onOpenBribe={openBribeDialog}

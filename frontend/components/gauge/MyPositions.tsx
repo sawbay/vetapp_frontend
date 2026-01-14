@@ -11,6 +11,7 @@ type MyPositionsProps = {
   poolType: PoolType;
   onCopy: (value: string) => void;
   onCommit: (poolAddress: string, positionAddress: string) => void;
+  onClaimFees: (poolAddress: string, positionAddress: string) => void;
   shorten: (value: string) => string;
   isSubmitting: boolean;
   isWalletReady: boolean;
@@ -22,6 +23,7 @@ export function MyPositions({
   poolType,
   onCopy,
   onCommit,
+  onClaimFees,
   shorten,
   isSubmitting,
   isWalletReady,
@@ -37,6 +39,7 @@ export function MyPositions({
             poolType={poolType}
             onCopy={onCopy}
             onCommit={onCommit}
+            onClaimFees={onClaimFees}
             shorten={shorten}
             isSubmitting={isSubmitting}
             isWalletReady={isWalletReady}
@@ -53,6 +56,7 @@ type MyPositionRowProps = {
   poolType: PoolType;
   onCopy: (value: string) => void;
   onCommit: (poolAddress: string, positionAddress: string) => void;
+  onClaimFees: (poolAddress: string, positionAddress: string) => void;
   shorten: (value: string) => string;
   isSubmitting: boolean;
   isWalletReady: boolean;
@@ -64,6 +68,7 @@ function MyPositionRow({
   poolType,
   onCopy,
   onCommit,
+  onClaimFees,
   shorten,
   isSubmitting,
   isWalletReady,
@@ -118,6 +123,14 @@ function MyPositionRow({
           Earned fees:{" "}
           {canFetchClaimable ? (claimableFetching ? "Loading..." : claimableDisplay) : "unknown"}
         </span>
+        <Button
+          size="sm"
+          className="h-7 px-2 text-xs"
+          disabled={!isWalletReady || isSubmitting || !canFetchClaimable}
+          onClick={() => onClaimFees(poolAddress, token.token_data_id)}
+        >
+          Claim fees
+        </Button>
       </div>
     </div>
   );
