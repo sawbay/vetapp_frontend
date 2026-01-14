@@ -5,12 +5,13 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { CommittedPositions } from "@/components/gauge/CommittedPositions";
 import { MyPositions } from "@/components/gauge/MyPositions";
-import { PoolToken } from "@/components/gauge/types";
+import { PoolType, PoolToken } from "@/components/gauge/types";
 
 type GaugePoolProps = {
   poolAddress: string;
   poolKey: string;
   poolMetaSummary: string;
+  poolType: PoolType;
   tokens: PoolToken[];
   myPositions: PoolToken[];
   onCopy: (value: string) => void;
@@ -27,6 +28,7 @@ export function GaugePool({
   poolAddress,
   poolKey,
   poolMetaSummary,
+  poolType,
   tokens,
   myPositions,
   onCopy,
@@ -70,6 +72,7 @@ export function GaugePool({
           <MyPositions
             tokens={myPositions}
             poolAddress={poolAddress}
+            poolType={poolType}
             onCopy={onCopy}
             onCommit={onCommit}
             shorten={shorten}

@@ -11,7 +11,7 @@ import { aptosClient } from "@/utils/aptosClient";
 import { GaugePool } from "@/components/gauge/GaugePool";
 import { AddBribe } from "@/components/gauge/AddBribe";
 import { toastTransactionSuccess } from "@/utils/transactionToast";
-import { PoolToken } from "@/components/gauge/types";
+import { PoolType, PoolToken } from "@/components/gauge/types";
 import { gaugeCommit } from "@/entry-functions/gaugeCommit";
 import { gaugeUncommit } from "@/entry-functions/gaugeUncommit";
 
@@ -28,7 +28,7 @@ export function Gauge() {
     Record<string, { tokenAddress: string; amount: string }>
   >({});
   const { data, isFetching, isError } = useGauge();
-  const { getPoolMetaSummary } = usePool();
+  const { getPoolMetaSummary, poolMetaByAddress } = usePool();
   const { data: userPositions } = useUserPositions();
   const { data: walletFungibleTokens = [] } = useWalletFungibleTokens();
   const shorten = (s: string) => `${s.slice(0, 6)}...${s.slice(-4)}`;
@@ -257,6 +257,16 @@ export function Gauge() {
             const myPositions = userTokens.filter(
               (token) => getPoolAddressFromToken(token) === poolAddress,
             );
+            const normalizedPoolAddress = poolAddress.toLowerCase().startsWith("0x")
+              ? poolAddress.toLowerCase()
+              : `0x${poolAddress.toLowerCase()}`;
+            const poolMeta = poolMetaByAddress.get(normalizedPoolAddress);
+            const poolType =
+              poolMeta?.hook_type_label === "STABLE" || poolMeta?.hook_type === 4
+                ? PoolType.STABLE
+                : poolMeta?.hook_type_label === "V3" || poolMeta?.hook_type === 3
+                  ? PoolType.CLMM
+                  : PoolType.AMM;
 
             return (
               <GaugePool
@@ -264,6 +274,7 @@ export function Gauge() {
                 poolAddress={poolAddress}
                 poolKey={poolKey}
                 poolMetaSummary={getPoolMetaSummary(poolAddress)}
+                poolType={poolType}
                 tokens={tokens}
                 myPositions={myPositions}
                 onCopy={onCopy}

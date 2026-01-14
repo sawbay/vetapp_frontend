@@ -5,3 +5,9 @@ export type PoolToken = {
     token_name: string;
   } | null;
 };
+
+export enum PoolType {
+  AMM = "amm",
+  STABLE = "stable",
+  CLMM = "clmm",
+}

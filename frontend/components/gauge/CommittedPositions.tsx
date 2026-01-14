@@ -86,7 +86,7 @@ function PoolTokenRow({
   });
   const canFetchClaimable = Boolean(AMM_ACCOUNT_ADDRESS && Number.isFinite(positionIdx));
   const { data: claimableData, isFetching: claimableFetching } = useQuery({
-    queryKey: ["amm-claimable", poolAddress, positionIdx],
+    queryKey: ["claimable", poolAddress, positionIdx],
     enabled: canFetchClaimable,
     queryFn: async (): Promise<Array<string | number | bigint>> => {
       const result = await aptosClient().view<[Array<string | number | bigint>]>({
