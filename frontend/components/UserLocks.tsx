@@ -64,6 +64,10 @@ function PoolVotes({ tokenAddress, onCopy, shorten }: PoolVotesProps) {
   const voted = voteData?.voted ?? false;
   const votedPools = voteData?.pools ?? [];
   const pools = gaugeData?.pools ?? [];
+  const votedWeights = votedPools.reduce<Record<string, string>>((acc, pool) => {
+    acc[pool.address] = `${pool.weight}`;
+    return acc;
+  }, {});
   useEffect(() => {
     if (pools.length === 0) {
       return;
@@ -142,12 +146,12 @@ function PoolVotes({ tokenAddress, onCopy, shorten }: PoolVotesProps) {
       <span className={voted ? "text-emerald-600" : "text-red-600"}>{voted ? "Voted" : "Not voted"}</span>
       {voted ? (
         <ul className="list-disc pl-6">
-          {votedPools.map((pool) => (
-            <li key={pool.address}>
-              <code className="border border-input rounded px-2 py-1" onClick={() => onCopy(pool.address)}>
-                {shorten(pool.address)}
+          {pools.map((pool) => (
+            <li key={pool}>
+              <code className="border border-input rounded px-2 py-1" onClick={() => onCopy(pool)}>
+                {shorten(pool)}
               </code>{" "}
-              weight: {`${pool.weight}`}
+              weight: {votedWeights[pool] ?? "0"}
             </li>
           ))}
         </ul>
