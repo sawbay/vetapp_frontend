@@ -15,6 +15,8 @@ import { PoolType, PoolToken } from "@/components/gauge/types";
 import { gaugeCommit } from "@/entry-functions/gaugeCommit";
 import { claimFees } from "@/entry-functions/claimFees";
 import { gaugeUncommit } from "@/entry-functions/gaugeUncommit";
+import { swapPool } from "@/entry-functions/swapPool";
+import { addLiquidity } from "@/entry-functions/addLiquidity";
 
 export function Gauge() {
   const { account, signAndSubmitTransaction } = useWallet();
@@ -243,6 +245,58 @@ export function Gauge() {
     }
   };
 
+  const onSwapPool = async (poolAddress: string) => {
+    if (!account || isSubmitting || !VETAPP_ACCOUNT_ADDRESS) {
+      return;
+    }
+
+    try {
+      setIsSubmitting(true);
+      const committedTransaction = await signAndSubmitTransaction(
+        swapPool({ poolAddress }),
+      );
+      const executedTransaction = await aptosClient().waitForTransaction({
+        transactionHash: committedTransaction.hash,
+      });
+      toastTransactionSuccess(executedTransaction.hash);
+    } catch (error) {
+      console.error(error);
+      toast({
+        variant: "destructive",
+        title: "Error",
+        description: "Failed to swap pool.",
+      });
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  const onAddLiquidity = async (poolAddress: string) => {
+    if (!account || isSubmitting || !VETAPP_ACCOUNT_ADDRESS) {
+      return;
+    }
+
+    try {
+      setIsSubmitting(true);
+      const committedTransaction = await signAndSubmitTransaction(
+        addLiquidity({ poolAddress }),
+      );
+      const executedTransaction = await aptosClient().waitForTransaction({
+        transactionHash: committedTransaction.hash,
+      });
+      toastTransactionSuccess(executedTransaction.hash);
+    } catch (error) {
+      console.error(error);
+      toast({
+        variant: "destructive",
+        title: "Error",
+        description: "Failed to add liquidity.",
+      });
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
   const setBribeInput = (poolKey: string, field: "tokenAddress" | "amount", value: string) => {
     setBribeInputs((prev) => ({
       ...prev,
@@ -314,6 +368,8 @@ export function Gauge() {
                 onUncommit={onUncommit}
                 onClaimReward={onClaimReward}
                 onOpenBribe={openBribeDialog}
+                onSwapPool={onSwapPool}
+                onAddLiquidity={onAddLiquidity}
                 shorten={shorten}
                 isSubmitting={isSubmitting}
                 isWalletReady={Boolean(account)}

@@ -8,6 +8,7 @@ import { VETAPP_ACCOUNT_ADDRESS } from "@/constants";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { createLock } from "@/entry-functions/createLock";
+import { increaseUnlockTime } from "@/entry-functions/increaseUnlockTime";
 import { vote } from "@/entry-functions/vote";
 import { toastTransactionSuccess } from "@/utils/transactionToast";
 import { formatNumber8 } from "@/utils/format";
@@ -36,7 +37,10 @@ type LockedBalance = {
 const getLockTokenId = (token: LockToken) => token.token_data_id;
 
 function LockInfo({ token }: { token: LockToken }) {
+  const { account, signAndSubmitTransaction } = useWallet();
+  const queryClient = useQueryClient();
   const tokenId = getLockTokenId(token);
+  const [isIncreasing, setIsIncreasing] = useState(false);
   
   const { data, isFetching } = useQuery({
     queryKey: ["lock-info", token.token_data_id, tokenId],
@@ -93,6 +97,41 @@ function LockInfo({ token }: { token: LockToken }) {
   const isExpired = !data.is_permanent && Number.isFinite(endSeconds) && endSeconds * 1000 < Date.now();
   const votingPowerDisplay =
     votingPower == null ? "unknown" : formatNumber8(votingPower);
+  const durationOptions = [
+    { label: "1Y", seconds: 365 * 24 * 60 * 60 },
+    { label: "2Y", seconds: 2 * 365 * 24 * 60 * 60 },
+    { label: "4Y", seconds: 4 * 365 * 24 * 60 * 60 },
+  ];
+
+  const onIncreaseLockTime = async (seconds: number) => {
+    if (!account || !tokenId || isIncreasing) {
+      return;
+    }
+    try {
+      setIsIncreasing(true);
+      const committedTransaction = await signAndSubmitTransaction(
+        increaseUnlockTime({
+          tokenAddress: tokenId,
+          lockDuration: seconds.toString(),
+        }),
+      );
+      const executedTransaction = await aptosClient().waitForTransaction({
+        transactionHash: committedTransaction.hash,
+      });
+      queryClient.invalidateQueries({ queryKey: ["lock-info", token.token_data_id, tokenId] });
+      queryClient.invalidateQueries({ queryKey: ["voting-power", token.token_data_id, tokenId] });
+      toastTransactionSuccess(executedTransaction.hash);
+    } catch (error) {
+      console.error(error);
+      toast({
+        variant: "destructive",
+        title: "Error",
+        description: "Failed to increase lock time.",
+      });
+    } finally {
+      setIsIncreasing(false);
+    }
+  };
   return (
     <div className="text-[11px] text-muted-foreground flex flex-col gap-1">
       <span>Amount: {formatNumber8(data.amount)} $TAPP</span>
@@ -103,6 +142,22 @@ function LockInfo({ token }: { token: LockToken }) {
       <span>
         Voting power: {isVotingPowerFetching ? "Loading..." : votingPowerDisplay}
       </span>
+      {!data.is_permanent ? (
+        <div className="flex items-center gap-2 flex-wrap">
+          <span className="text-[11px] text-muted-foreground">Increase lock time</span>
+          {durationOptions.map((option) => (
+            <Button
+              key={option.label}
+              size="sm"
+              className="h-6 px-2 text-[11px]"
+              disabled={!account || isIncreasing}
+              onClick={() => onIncreaseLockTime(option.seconds)}
+            >
+              {option.label}
+            </Button>
+          ))}
+        </div>
+      ) : null}
     </div>
   );
 }

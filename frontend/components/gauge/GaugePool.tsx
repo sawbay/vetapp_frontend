@@ -20,6 +20,8 @@ type GaugePoolProps = {
   onUncommit: (poolAddress: string, positionAddress: string) => void;
   onClaimReward: (poolAddress: string, positionAddress: string) => void;
   onOpenBribe: (poolAddress: string, poolKey: string) => void;
+  onSwapPool: (poolAddress: string) => void;
+  onAddLiquidity: (poolAddress: string) => void;
   shorten: (value: string) => string;
   isSubmitting: boolean;
   isWalletReady: boolean;
@@ -38,6 +40,8 @@ export function GaugePool({
   onUncommit,
   onClaimReward,
   onOpenBribe,
+  onSwapPool,
+  onAddLiquidity,
   shorten,
   isSubmitting,
   isWalletReady,
@@ -60,6 +64,22 @@ export function GaugePool({
             onClick={() => onOpenBribe(poolAddress, poolKey)}
           >
             Add Bribe
+          </Button>
+          <Button
+            size="sm"
+            className="h-7 px-2 text-xs"
+            disabled={!isWalletReady || isSubmitting}
+            onClick={() => onSwapPool(poolAddress)}
+          >
+            Swap
+          </Button>
+          <Button
+            size="sm"
+            className="h-7 px-2 text-xs"
+            disabled={!isWalletReady || isSubmitting}
+            onClick={() => onAddLiquidity(poolAddress)}
+          >
+            Add Liq
           </Button>
           <span className="text-xs text-muted-foreground">{poolMetaSummary}</span>
         </h3>
