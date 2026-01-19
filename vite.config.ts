@@ -2,6 +2,7 @@ import path from "path";
 import { execSync } from "child_process";
 import react from "@vitejs/plugin-react";
 import { defineConfig } from "vite";
+import { cloudflare } from "@cloudflare/vite-plugin";
 
 const getGitValue = (command: string) => {
   try {
@@ -16,14 +17,12 @@ const commitMessage = getGitValue("git log -1 --pretty=%s");
 const commitTimestamp = getGitValue("git log -1 --pretty=%cI");
 
 export default defineConfig({
-  build: {
-    outDir: "dist",
-  },
   server: {
     open: true,
   },
   plugins: [
     react(),
+    cloudflare(),
   ],
   resolve: {
     alias: {

@@ -5,7 +5,7 @@
   "license": "Apache-2.0",
   "scripts": {
     "dev": "vite",
-    "build": "tsc && vite build --mode cloudflare",
+    "build": "tsc && vite build",
     "deploy": "vercel",
     "deploy:cloudflare": "npm run build && npx wrangler deploy",
     "dev:cloudflare": "npm run build && npx wrangler dev --local",
@@ -32,18 +32,20 @@
     "react": "^18.2.0",
     "react-dom": "^18.2.0",
     "react-router-dom": "^6.23.1",
+    "hono": "^4.6.5",
     "stream-browserify": "^3.0.0",
     "tailwind-merge": "^2.3.0",
     "tailwindcss-animate": "^1.0.7",
     "util": "^0.12.5"
   },
   "devDependencies": {
+    "@cloudflare/vite-plugin": "1.7.5",
     "@types/node": "^20.14.1",
     "@types/react": "^18.2.66",
     "@types/react-dom": "^18.2.22",
     "@typescript-eslint/eslint-plugin": "^7.2.0",
     "@typescript-eslint/parser": "^7.2.0",
-    "@vitejs/plugin-react": "^4.2.1",
+    "@vitejs/plugin-react": "4.6.0",
     "autoprefixer": "^10.4.19",
     "dotenv": "16.3.1",
     "eslint": "^8.57.0",
@@ -55,7 +57,8 @@
     "tree-kill": "1.2.2",
     "typescript": "^5.2.2",
     "vercel": "^35.2.4",
-    "vite": "^5.2.0",
-    "vite-plugin-notifier": "^0.1.5"
+    "vite": "^6.1.0",
+    "vite-plugin-notifier": "^0.1.5",
+    "wrangler": "^4.27.0"
   }
 }
