@@ -8,4 +8,4 @@ assets = { directory = "dist", binding = "ASSETS" }
 enabled = true
 
 [triggers]
-crons = ["* * * * *"]
+crons = ["1 * * * *"]
