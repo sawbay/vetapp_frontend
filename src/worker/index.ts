@@ -17,10 +17,10 @@ export default {
     }
     ctx.waitUntil(
       distributeGauges({
-        functionId:
-          "0x85cc56d60c782c1e7a58156184d6fa8c152cd337049bdd9419633b55e79d8352::helper_ve::distribute_gauges",
+        functionId: 
+          `${env.VITE_MODULE_VETAPP_LIB_ACCOUNT_ADDRESS}::helper_ve::distribute_gauges`,
         privateKey: env.APTOS_PRIVATE_KEY,
-        network: ("testnet") as Network,
+        network: (env.VITE_APP_NETWORK ?? "testnet") as Network,
       }),
     );
   },
