@@ -13,3 +13,6 @@ crons = ["1 * * * *"]
 [assets]
 directory = "./dist/client"
 not_found_handling = "single-page-application"
+
+[vars]
+PROJECT_NAME ="vetappfrontend"
