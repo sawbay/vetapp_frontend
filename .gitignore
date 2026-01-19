@@ -34,3 +34,4 @@ pnpm-lock.yaml
 # template related files
 example-collection/
 .wrangler
+.dev.vars
