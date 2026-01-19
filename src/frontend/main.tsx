@@ -1,4 +1,4 @@
-import "../vite.polyfills";
+import "./vite.polyfills";
 import "./index.css";
 
 import React from "react";
