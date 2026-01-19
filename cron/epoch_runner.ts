@@ -8,8 +8,6 @@ export type DistributeGaugesConfig = {
 };
 
 export async function distributeGauges(config: DistributeGaugesConfig): Promise<string> {
-  console.log(config.privateKey);
-  console.log(config.functionId);
   const account = Account.fromPrivateKey({
     privateKey: new Ed25519PrivateKey(config.privateKey) 
   });
