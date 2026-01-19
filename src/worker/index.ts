@@ -18,7 +18,7 @@ export default {
     ctx.waitUntil(
       distributeGauges({
         functionId: 
-          `${env.VITE_MODULE_VETAPP_LIB_ACCOUNT_ADDRESS}::helper_ve::distribute_gauges`,
+          `${env.VITE_MODULE_VETAPP_ACCOUNT_ADDRESS}::helper_ve::distribute_gauges`,
         privateKey: env.APTOS_PRIVATE_KEY,
         network: (env.VITE_APP_NETWORK ?? "testnet") as Network,
       }),
