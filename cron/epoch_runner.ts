@@ -7,21 +7,41 @@ export type DistributeGaugesConfig = {
   apiKey?: string;
 };
 
-const buildAptosClient = (network: Network, apiKey?: string) =>
-  new Aptos(new AptosConfig({ network, clientConfig: apiKey ? { API_KEY: apiKey } : undefined }));
-
 export async function distributeGauges(config: DistributeGaugesConfig): Promise<string> {
   console.log(config.privateKey);
   console.log(config.functionId);
-  const account = Account.fromPrivateKey({ privateKey: new Ed25519PrivateKey(config.privateKey) });
-  const aptos = buildAptosClient(config.network ?? "mainnet", config.apiKey);
-  const transaction = await aptos.transaction.build.simple({
+  const account = Account.fromPrivateKey({
+    privateKey: new Ed25519PrivateKey(config.privateKey) 
+  });
+  const aptos = new Aptos(new AptosConfig({ network: Network.TESTNET }));
+  const txn = await aptos.transaction.build.simple({
     sender: account.accountAddress,
     data: {
       function: config.functionId,
       functionArguments: [],
     },
   });
-  const pending = await aptos.signAndSubmitTransaction({ signer: account, transaction });
-  return pending.hash;
+
+  const simulation = await aptos.transaction.simulate.simple({
+      transaction: txn,
+      options: {
+        estimateGasUnitPrice: true,
+        estimateMaxGasAmount: true
+      }
+  });
+  console.log(simulation);
+
+  const senderAuthenticator = aptos.transaction.sign({
+    signer: account,
+    transaction: txn,
+  });
+  const submittedTransaction = await aptos.transaction.submit.simple({
+    transaction: txn,
+    senderAuthenticator,
+  });
+
+  const executedTransaction = await aptos.waitForTransaction({ transactionHash: submittedTransaction.hash });
+  console.log(executedTransaction.hash);
+
+  return executedTransaction.hash;
 }
