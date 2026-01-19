@@ -28,7 +28,7 @@ export function useGauge() {
       const collectionAddress = deriveCollectionAddress(vaultAddress, "TAPP").toString();
       const poolsResult = await aptosClient().view<[string[]]>({
         payload: {
-          function: `${VETAPP_ACCOUNT_ADDRESS}::voter::pools`,
+          function: `${VETAPP_ACCOUNT_ADDRESS}::voter::gauges`,
         },
       });
       const pools = poolsResult[0] ?? [];
