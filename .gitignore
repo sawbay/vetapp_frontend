@@ -35,4 +35,4 @@ pnpm-lock.yaml
 example-collection/
 .wrangler
 .dev.vars
-# .env.cloudflare
+.env.cloudflare
