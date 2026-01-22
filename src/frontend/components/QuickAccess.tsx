@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { useWallet } from "@aptos-labs/wallet-adapter-react";
 import { useQuery } from "@tanstack/react-query";
-import { AMM_ACCOUNT_ADDRESS, CLMM_ACCOUNT_ADDRESS, GAUGE_ACCOUNT_ADDRESS, STABLE_ACCOUNT_ADDRESS, TAPP_ACCOUNT_ADDRESS, VETAPP_ACCOUNT_ADDRESS } from "@/constants";
+import { AMM_ACCOUNT_ADDRESS, CLMM_ACCOUNT_ADDRESS, GAUGE_ACCOUNT_ADDRESS, NETWORK, STABLE_ACCOUNT_ADDRESS, TAPP_ACCOUNT_ADDRESS, VETAPP_ACCOUNT_ADDRESS } from "@/constants";
 import { toast } from "@/components/ui/use-toast";
 import { faucetQuickMint } from "@/entry-functions/faucetQuickMint";
 import { mintTapp } from "@/entry-functions/mintTapp";
@@ -82,7 +82,7 @@ export function QuickAccess() {
       <b>Packages:</b>
       <a
         className="underline underline-offset-4"
-        href={`https://explorer.aptoslabs.com/account/${TAPP_ACCOUNT_ADDRESS ?? ""}`}
+        href={`https://explorer.aptoslabs.com/account/${TAPP_ACCOUNT_ADDRESS ?? ""}?network=${NETWORK}`}
         target="_blank"
         rel="noreferrer"
       >
@@ -90,7 +90,7 @@ export function QuickAccess() {
       </a>
       <a
         className="underline underline-offset-4"
-        href={`https://explorer.aptoslabs.com/account/${AMM_ACCOUNT_ADDRESS ?? ""}`}
+        href={`https://explorer.aptoslabs.com/account/${AMM_ACCOUNT_ADDRESS ?? ""}?network=${NETWORK}`}
         target="_blank"
         rel="noreferrer"
       >
@@ -98,7 +98,7 @@ export function QuickAccess() {
       </a>
       <a
         className="underline underline-offset-4"
-        href={`https://explorer.aptoslabs.com/account/${CLMM_ACCOUNT_ADDRESS ?? ""}`}
+        href={`https://explorer.aptoslabs.com/account/${CLMM_ACCOUNT_ADDRESS ?? ""}?network=${NETWORK}`}
         target="_blank"
         rel="noreferrer"
       >
@@ -106,7 +106,7 @@ export function QuickAccess() {
       </a>
       <a
         className="underline underline-offset-4"
-        href={`https://explorer.aptoslabs.com/account/${STABLE_ACCOUNT_ADDRESS ?? ""}`}
+        href={`https://explorer.aptoslabs.com/account/${STABLE_ACCOUNT_ADDRESS ?? ""}?network=${NETWORK}`}
         target="_blank"
         rel="noreferrer"
       >
@@ -114,7 +114,7 @@ export function QuickAccess() {
       </a>
       <a
         className="underline underline-offset-4"
-        href={`https://explorer.aptoslabs.com/account/${VETAPP_ACCOUNT_ADDRESS ?? ""}`}
+        href={`https://explorer.aptoslabs.com/account/${VETAPP_ACCOUNT_ADDRESS ?? ""}?network=${NETWORK}`}
         target="_blank"
         rel="noreferrer"
       >
@@ -122,7 +122,7 @@ export function QuickAccess() {
       </a>
       <a
         className="underline underline-offset-4"
-        href={`https://explorer.aptoslabs.com/account/${GAUGE_ACCOUNT_ADDRESS ?? ""}`}
+        href={`https://explorer.aptoslabs.com/account/${GAUGE_ACCOUNT_ADDRESS ?? ""}?network=${NETWORK}`}
         target="_blank"
         rel="noreferrer"
       >
@@ -130,7 +130,7 @@ export function QuickAccess() {
       </a>
       <a
         className="underline underline-offset-4"
-        href={`https://explorer.aptoslabs.com/account/${tappTokenAddress ?? ""}/resources`}
+        href={`https://explorer.aptoslabs.com/account/${tappTokenAddress ?? ""}/resources?network=${NETWORK}`}
         target="_blank"
         rel="noreferrer"
       >
