@@ -1,5 +1,5 @@
 import { useWallet } from "@aptos-labs/wallet-adapter-react";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, UseQueryResult } from "@tanstack/react-query";
 import { aptosClient } from "@/utils/aptosClient";
 import { deriveCollectionAddress, deriveVaultAddress } from "@/utils/helpers";
 import { VETAPP_ACCOUNT_ADDRESS } from "@/constants";
@@ -15,23 +15,23 @@ type LocksQueryResult = {
   }[];
 };
 
-export function useLocks() {
+export function useLocks(accountAddress?: string | null): UseQueryResult<LocksQueryResult> {
   const { account } = useWallet();
+  const targetAddress = accountAddress ?? account?.address;
 
-  return useQuery({
-    queryKey: ["user-locks", account?.address],
-    enabled: Boolean(account),
+  return useQuery<LocksQueryResult>({
+    queryKey: ["user-locks", targetAddress],
+    enabled: Boolean(targetAddress),
     queryFn: async (): Promise<LocksQueryResult> => {
-      if (!account) {
+      if (!targetAddress) {
         return { collectionAddress: null, tokens: [] };
       }
 
       const vaultAddress = deriveVaultAddress(VETAPP_ACCOUNT_ADDRESS, "VE_TAPP");
       const collectionAddress = deriveCollectionAddress(vaultAddress, "veTAPP").toString();
-      console.log(collectionAddress);
 
       const tokens = await aptosClient().getAccountOwnedTokensFromCollectionAddress({
-        accountAddress: account.address,
+        accountAddress: targetAddress,
         collectionAddress,
         options: { limit: 200 },
       });

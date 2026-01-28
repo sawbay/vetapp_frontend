@@ -17,7 +17,6 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog";
-import { createLock } from "@/entry-functions/createLock";
 import { increaseUnlockTime } from "@/entry-functions/increaseUnlockTime";
 import { vote } from "@/entry-functions/vote";
 import { toastTransactionSuccess } from "@/utils/transactionToast";
@@ -57,7 +56,7 @@ function LockInfo({ token }: { token: LockToken }) {
   const queryClient = useQueryClient();
   const tokenId = getLockTokenId(token);
   const [isIncreasing, setIsIncreasing] = useState(false);
-  
+
   const { data, isFetching } = useQuery({
     queryKey: ["lock-info", token.token_data_id, tokenId],
     enabled: Boolean(VETAPP_ACCOUNT_ADDRESS && tokenId),
@@ -103,12 +102,12 @@ function LockInfo({ token }: { token: LockToken }) {
   const endSeconds = Number(data.end);
   const endDisplay = Number.isFinite(endSeconds)
     ? new Date(endSeconds * 1000).toLocaleString(undefined, {
-        month: "short",
-        day: "numeric",
-        year: "numeric",
-        hour: "numeric",
-        minute: "2-digit",
-      })
+      month: "short",
+      day: "numeric",
+      year: "numeric",
+      hour: "numeric",
+      minute: "2-digit",
+    })
     : `${data.end}`;
   const isExpired = !data.is_permanent && Number.isFinite(endSeconds) && endSeconds * 1000 < Date.now();
   const votingPowerDisplay =
@@ -234,11 +233,11 @@ function PoolVotes({ tokenAddress, onCopy, shorten, enabled = true }: PoolVotesP
       });
       const rewardResult = GAUGE_ACCOUNT_ADDRESS
         ? await aptosClient().view<[Array<string | number | bigint>]>({
-            payload: {
-              function: `${GAUGE_ACCOUNT_ADDRESS}::fees_voting_reward::earned_many`,
-              functionArguments: [selectedPool, tokenAddress],
-            },
-          })
+          payload: {
+            function: `${GAUGE_ACCOUNT_ADDRESS}::fees_voting_reward::earned_many`,
+            functionArguments: [selectedPool, tokenAddress],
+          },
+        })
         : [[]];
       return {
         weight: weightResult[0] ?? "0",
@@ -440,12 +439,12 @@ function LockVoteSummary({ tokenAddress }: { tokenAddress: string }) {
 }
 
 export function UserLocks() {
-  const { account, signAndSubmitTransaction } = useWallet();
-  const queryClient = useQueryClient();
-  const { data, isFetching } = useLocks();
-  const [lockValue, setLockValue] = useState("");
-  const [lockDuration, setLockDuration] = useState("");
-  const [isLockSubmitting, setIsLockSubmitting] = useState(false);
+  const { account } = useWallet();
+  const [impersonationInput, setImpersonationInput] = useState("");
+  const [impersonatedAddress, setImpersonatedAddress] = useState<string | null>(null);
+  const walletAddress = account?.address?.toString() ?? null;
+  const effectiveAddress = impersonatedAddress ?? walletAddress;
+  const { data, isFetching } = useLocks(effectiveAddress);
   const locksScrollRef = useRef<HTMLDivElement | null>(null);
   const lockCardRefs = useRef<(HTMLDivElement | null)[]>([]);
   const [activeLockIndex, setActiveLockIndex] = useState(0);
@@ -462,46 +461,17 @@ export function UserLocks() {
       });
     }
   };
-
-  const onCreateLock = async () => {
-    if (!account || isLockSubmitting) {
+  const applyImpersonation = () => {
+    const trimmed = impersonationInput.trim();
+    if (!trimmed) {
       return;
     }
-
-    const trimmedValue = lockValue.trim();
-    const trimmedDuration = lockDuration.trim();
-    const isValueValid = /^\d+$/.test(trimmedValue);
-    const isDurationValid = /^\d+$/.test(trimmedDuration);
-
-    if (!isValueValid || !isDurationValid) {
-      toast({
-        variant: "destructive",
-        title: "Error",
-        description: "Value and lock duration must be whole numbers.",
-      });
-      return;
-    }
-
-    try {
-      setIsLockSubmitting(true);
-      const committedTransaction = await signAndSubmitTransaction(
-        createLock({ value: trimmedValue, lockDuration: trimmedDuration }),
-      );
-      const executedTransaction = await aptosClient().waitForTransaction({
-        transactionHash: committedTransaction.hash,
-      });
-      queryClient.invalidateQueries({ queryKey: ["user-locks", account.address] });
-      toastTransactionSuccess(executedTransaction.hash);
-    } catch (error) {
-      console.error(error);
-      toast({
-        variant: "destructive",
-        title: "Error",
-        description: "Failed to create lock.",
-      });
-    } finally {
-      setIsLockSubmitting(false);
-    }
+    setImpersonatedAddress(trimmed);
+    setImpersonationInput("");
+  };
+  const clearImpersonation = () => {
+    setImpersonatedAddress(null);
+    setImpersonationInput("");
   };
 
   useEffect(() => {
@@ -533,38 +503,35 @@ export function UserLocks() {
           Collection address: {data?.collectionAddress ?? "unknown"}
         </div>
       </div>
-      <div className="flex flex-col gap-2 text-xs">
-        <div className="text-sm font-medium">Create lock</div>
-        <div className="flex flex-wrap items-end gap-2">
-          <div className="flex flex-col gap-1">
-            <span className="text-xs text-muted-foreground">Value (u64)</span>
-            <Input
-              className="h-7 w-40 text-xs"
-              inputMode="numeric"
-              placeholder="e.g. 100000000"
-              value={lockValue}
-              onChange={(event) => setLockValue(event.target.value)}
-            />
-          </div>
-          <div className="flex flex-col gap-1">
-            <span className="text-xs text-muted-foreground">Lock duration (seconds)</span>
-            <Input
-              className="h-7 w-56 text-xs"
-              inputMode="numeric"
-              placeholder="e.g. 604800"
-              value={lockDuration}
-              onChange={(event) => setLockDuration(event.target.value)}
-            />
-          </div>
+      <div className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
+        <span className="text-[11px]">View locks for address:</span>
+        <Input
+          className="h-7 w-56 text-xs"
+          placeholder="0x..."
+          value={impersonationInput}
+          onChange={(event) => setImpersonationInput(event.target.value)}
+        />
+        <Button
+          size="sm"
+          className="h-7 px-2 text-xs"
+          onClick={applyImpersonation}
+          disabled={!impersonationInput.trim()}
+        >
+          Load
+        </Button>
+        {impersonatedAddress ? (
           <Button
             size="sm"
+            variant="ghost"
             className="h-7 px-2 text-xs"
-            disabled={!account || isLockSubmitting}
-            onClick={onCreateLock}
+            onClick={clearImpersonation}
           >
-            {isLockSubmitting ? "Creating..." : "Create Lock"}
+            Use wallet
           </Button>
-        </div>
+        ) : null}
+        <span className="text-[11px] text-muted-foreground">
+          Showing {effectiveAddress ? shorten(effectiveAddress) : "no address"}.
+        </span>
       </div>
       {!isFetching && tokens.length === 0 ? (
         <p className="text-xs text-muted-foreground">No tokens found for this collection.</p>
@@ -605,58 +572,58 @@ export function UserLocks() {
                   }}
                   className="min-w-[240px] max-w-[280px] shrink-0 snap-start rounded-md border border-input bg-card p-3"
                 >
-              <div className="flex flex-col gap-2">
-                <span>
-                  {token.current_token_data?.token_name} :
-                  <code
-                    className="border border-input rounded px-2 py-1"
-                    onClick={() => onCopy(token.token_data_id)}
-                  >
-                    {shorten(token.token_data_id)}
-                  </code>
-                </span>
-                <LockInfo token={token} />
-                <div className="flex items-center justify-between gap-2">
-                  <LockVoteSummary tokenAddress={token.token_data_id} />
-                  <Dialog
-                    open={openVoteTokenId === token.token_data_id}
-                    onOpenChange={(open) =>
-                      setOpenVoteTokenId(open ? token.token_data_id : null)
-                    }
-                  >
-                    <DialogTrigger asChild>
-                      <Button
-                        size="sm"
-                        className="h-7 px-2 text-xs"
-                        disabled={!account}
+                  <div className="flex flex-col gap-2">
+                    <span>
+                      {token.current_token_data?.token_name} :
+                      <code
+                        className="border border-input rounded px-2 py-1"
+                        onClick={() => onCopy(token.token_data_id)}
                       >
-                        View voted pools
-                      </Button>
-                    </DialogTrigger>
-                    <DialogContent className="max-w-[min(90vw,800px)]">
-                      <DialogHeader>
-                        <DialogTitle>Vote pools for {shorten(token.token_data_id)}</DialogTitle>
-                        <DialogDescription>
-                          Add or adjust vote weights and inspect fee rewards tied to this lock.
-                        </DialogDescription>
-                      </DialogHeader>
-                      <PoolVotes
-                        tokenAddress={token.token_data_id}
-                        onCopy={onCopy}
-                        shorten={shorten}
-                        enabled={openVoteTokenId === token.token_data_id}
-                      />
-                      <DialogFooter>
-                        <DialogClose asChild>
-                          <Button size="sm" variant="ghost">
-                            Close
+                        {shorten(token.token_data_id)}
+                      </code>
+                    </span>
+                    <LockInfo token={token} />
+                    <div className="flex items-center justify-between gap-2">
+                      <LockVoteSummary tokenAddress={token.token_data_id} />
+                      <Dialog
+                        open={openVoteTokenId === token.token_data_id}
+                        onOpenChange={(open) =>
+                          setOpenVoteTokenId(open ? token.token_data_id : null)
+                        }
+                      >
+                        <DialogTrigger asChild>
+                          <Button
+                            size="sm"
+                            className="h-7 px-2 text-xs"
+                            disabled={!account}
+                          >
+                            View voted pools
                           </Button>
-                        </DialogClose>
-                      </DialogFooter>
-                    </DialogContent>
-                  </Dialog>
-                </div>
-              </div>
+                        </DialogTrigger>
+                        <DialogContent className="max-w-[min(90vw,800px)]">
+                          <DialogHeader>
+                            <DialogTitle>Vote pools for {shorten(token.token_data_id)}</DialogTitle>
+                            <DialogDescription>
+                              Add or adjust vote weights and inspect fee rewards tied to this lock.
+                            </DialogDescription>
+                          </DialogHeader>
+                          <PoolVotes
+                            tokenAddress={token.token_data_id}
+                            onCopy={onCopy}
+                            shorten={shorten}
+                            enabled={openVoteTokenId === token.token_data_id}
+                          />
+                          <DialogFooter>
+                            <DialogClose asChild>
+                              <Button size="sm" variant="ghost">
+                                Close
+                              </Button>
+                            </DialogClose>
+                          </DialogFooter>
+                        </DialogContent>
+                      </Dialog>
+                    </div>
+                  </div>
                 </div>
               ))}
             </div>
