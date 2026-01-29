@@ -52,22 +52,22 @@ export function Vote() {
       const [epochStart, epochNext, voteStart, voteEnd, activePeriod, epochCount, weeklyEmission] = await Promise.all([
         aptosClient().view<[EpochView]>({
           payload: {
-            function: `${VETAPP_ACCOUNT_ADDRESS}::helper_ve::epoch_start`,
+            function: `${VETAPP_ACCOUNT_ADDRESS}::voter::epoch_start`,
           },
         }),
         aptosClient().view<[EpochView]>({
           payload: {
-            function: `${VETAPP_ACCOUNT_ADDRESS}::helper_ve::epoch_next`,
+            function: `${VETAPP_ACCOUNT_ADDRESS}::voter::epoch_next`,
           },
         }),
         aptosClient().view<[EpochView]>({
           payload: {
-            function: `${VETAPP_ACCOUNT_ADDRESS}::helper_ve::epoch_vote_start`,
+            function: `${VETAPP_ACCOUNT_ADDRESS}::voter::epoch_vote_start`,
           },
         }),
         aptosClient().view<[EpochView]>({
           payload: {
-            function: `${VETAPP_ACCOUNT_ADDRESS}::helper_ve::epoch_vote_end`,
+            function: `${VETAPP_ACCOUNT_ADDRESS}::voter::epoch_vote_end`,
           },
         }),
         aptosClient().view<[EpochView]>({
