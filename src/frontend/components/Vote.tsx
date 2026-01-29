@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { useWallet } from "@aptos-labs/wallet-adapter-react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { VETAPP_ACCOUNT_ADDRESS } from "@/constants";
+import { VE_TAPP_HELPER_ADDRESS, VETAPP_ACCOUNT_ADDRESS } from "@/constants";
 import { aptosClient } from "@/utils/aptosClient";
 import { formatNumber8 } from "@/utils/format";
 import { toast } from "@/components/ui/use-toast";
@@ -10,18 +10,7 @@ import { updatePeriod } from "@/entry-functions/updatePeriod";
 import { QuickAccess } from "./QuickAccess";
 import { deriveVaultAddress } from "@/utils/helpers";
 import { toastTransactionSuccess } from "@/utils/transactionToast";
-
-type EpochView = string | number | bigint;
-
-type EpochData = {
-  epochStart: EpochView;
-  epochNext: EpochView;
-  voteStart: EpochView;
-  voteEnd: EpochView;
-  activePeriod: EpochView;
-  epochCount: EpochView;
-  weeklyEmission: EpochView;
-};
+import { useEpochData } from "@/hooks/useEpochData";
 
 const toEpochSeconds = (value: EpochView): number | null => {
   const numeric = typeof value === "bigint" ? Number(value) : Number(value);
@@ -45,59 +34,7 @@ export function Vote() {
   const queryClient = useQueryClient();
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [adminSubmittingKey, setAdminSubmittingKey] = useState<string | null>(null);
-  const { data, isFetching, isError } = useQuery({
-    queryKey: ["helper-ve-epochs"],
-    enabled: Boolean(VETAPP_ACCOUNT_ADDRESS),
-    queryFn: async (): Promise<EpochData> => {
-      const [epochStart, epochNext, voteStart, voteEnd, activePeriod, epochCount, weeklyEmission] = await Promise.all([
-        aptosClient().view<[EpochView]>({
-          payload: {
-            function: `${VETAPP_ACCOUNT_ADDRESS}::voter::epoch_start`,
-          },
-        }),
-        aptosClient().view<[EpochView]>({
-          payload: {
-            function: `${VETAPP_ACCOUNT_ADDRESS}::voter::epoch_next`,
-          },
-        }),
-        aptosClient().view<[EpochView]>({
-          payload: {
-            function: `${VETAPP_ACCOUNT_ADDRESS}::voter::epoch_vote_start`,
-          },
-        }),
-        aptosClient().view<[EpochView]>({
-          payload: {
-            function: `${VETAPP_ACCOUNT_ADDRESS}::voter::epoch_vote_end`,
-          },
-        }),
-        aptosClient().view<[EpochView]>({
-          payload: {
-            function: `${VETAPP_ACCOUNT_ADDRESS}::minter::active_period`,
-          },
-        }),
-        aptosClient().view<[EpochView]>({
-          payload: {
-            function: `${VETAPP_ACCOUNT_ADDRESS}::minter::epoch_count`,
-          },
-        }),
-        aptosClient().view<[EpochView]>({
-          payload: {
-            function: `${VETAPP_ACCOUNT_ADDRESS}::minter::weekly`,
-          },
-        }),
-      ]);
-
-      return {
-        epochStart: epochStart[0],
-        epochNext: epochNext[0],
-        voteStart: voteStart[0],
-        voteEnd: voteEnd[0],
-        activePeriod: activePeriod[0],
-        epochCount: epochCount[0],
-        weeklyEmission: weeklyEmission[0],
-      };
-    },
-  });
+  const { data, isFetching, isError } = useEpochData();
 
   if (!VETAPP_ACCOUNT_ADDRESS) {
     return <div className="text-sm text-muted-foreground">VETAPP address not configured.</div>;
@@ -132,28 +69,26 @@ export function Vote() {
     }
   };
 
-  const actions = [
+  const adminActions = [
     {
-      key: "create-time-and-epoch",
-      label: "Create Time + Epoch",
-      functionName: "create_time_and_epoch",
+      key: "initialize",
+      label: "Initialize (test)",
+      functionName: "initialize",
+      args: [
+        true,
+      ]
     },
     {
-      key: "create-pools",
-      label: "Create Pools",
-      functionName: "create_pools",
-    },
-    {
-      key: "add-liqs",
-      label: "Add Liqs",
-      functionName: "add_liqs",
-    },
+      key: "initialize",
+      label: "Initialize (staging)",
+      functionName: "initialize",
+      args: [
+        false,
+      ]
+    }
+  ]
 
-    {
-      key: "swaps-pools",
-      label: "Swaps Pools",
-      functionName: "swaps_pools",
-    },
+  const actions = [
     {
       key: "distribute-gauges",
       label: "Distribute Gauges",
@@ -161,17 +96,21 @@ export function Vote() {
     },
   ];
 
-  const runAction = async (functionName: string, key: string) => {
+  const runAction = async (action: {
+    key: string;
+    functionName: string;
+    args?: Array<string | number | bigint | boolean>;
+  }) => {
     if (!account || adminSubmittingKey) {
       return;
     }
 
     try {
-      setAdminSubmittingKey(key);
+      setAdminSubmittingKey(action.key);
       const committedTransaction = await signAndSubmitTransaction({
         data: {
-          function: `${VETAPP_ACCOUNT_ADDRESS}::helper_ve::${functionName}`,
-          functionArguments: [],
+          function: `${VE_TAPP_HELPER_ADDRESS}::helper_ve::${action.functionName}`,
+          functionArguments: action.args ?? [],
         },
       });
       const executedTransaction = await aptosClient().waitForTransaction({
@@ -193,7 +132,7 @@ export function Vote() {
   return (
     <div className="flex flex-col gap-4">
       <QuickAccess />
-      <h4 className="text-lg font-medium">Vote epochs</h4>
+      <h4 className="text-base font-semibold tracking-tight text-foreground">Vote epochs</h4>
       <div className="flex flex-wrap items-start justify-between gap-6">
         <div>{isFetching || !data ? (
           <div className="text-sm text-muted-foreground">Loading...</div>
@@ -224,7 +163,23 @@ export function Vote() {
         </div>
       </div>
       <div className="flex flex-col gap-3">
-        <div className="text-lg font-medium"></div>
+        <div className="text-sm font-semibold uppercase tracking-wide text-amber-600">Admin</div>
+        <div className="flex flex-wrap gap-2 text-xs">
+          {adminActions.map((action) => (
+            <Button
+              key={action.key}
+              size="sm"
+              className="h-7 px-2 text-xs"
+              disabled={!account || Boolean(adminSubmittingKey)}
+              onClick={() => runAction(action)}
+            >
+              {adminSubmittingKey === action.key ? "Running..." : action.label}
+            </Button>
+          ))}
+        </div>
+      </div>
+      <div className="flex flex-col gap-3">
+        <div className="text-sm font-semibold text-foreground">ANYONE</div>
         <div className="flex flex-wrap gap-2 text-xs">
           {actions.map((action) => (
             <Button
@@ -232,7 +187,7 @@ export function Vote() {
               size="sm"
               className="h-7 px-2 text-xs"
               disabled={!account || Boolean(adminSubmittingKey)}
-              onClick={() => runAction(action.functionName, action.key)}
+              onClick={() => runAction(action)}
             >
               {adminSubmittingKey === action.key ? "Running..." : action.label}
             </Button>
