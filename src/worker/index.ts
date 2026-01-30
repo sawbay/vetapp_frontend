@@ -8,6 +8,39 @@ app.use("*", cors());
 app.get("/api/health", (c) => {
   return c.json({ status: "ok", timestamp: new Date().toISOString() });
 });
+app.get("/api/contract_addrs", (c) => {
+  const {
+    amm,
+    bonding_curve,
+    clmm,
+    escrow,
+    gauge,
+    nft_springboard,
+    stable,
+    tapp,
+    ve_tapp,
+    ve_tapp_lib,
+    views,
+    sor,
+    ve_tapp_helper,
+  } = c.env;
+
+  return c.json({
+    amm,
+    bonding_curve,
+    clmm,
+    escrow,
+    gauge,
+    nft_springboard,
+    stable,
+    tapp,
+    ve_tapp,
+    ve_tapp_lib,
+    views,
+    sor,
+    ve_tapp_helper,
+  });
+});
 
 export default {
   fetch: app.fetch,
