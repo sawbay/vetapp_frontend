@@ -1,7 +1,7 @@
 import { useCallback, useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { aptosClient } from "@/utils/aptosClient";
-import { TAPP_ACCOUNT_ADDRESS, VETAPP_ACCOUNT_ADDRESS } from "@/constants";
+import { VETAPP_ACCOUNT_ADDRESS, VIEWS_ACCOUNT_ADDRESS } from "@/constants";
 import { formatNumber8 } from "@/utils/format";
 
 export type PoolMeta = {
@@ -41,7 +41,7 @@ export function usePool() {
       }
       const result = await aptosClient().view<[Array<Record<string, unknown>>]>({
         payload: {
-          function: `${TAPP_ACCOUNT_ADDRESS}::router::pool_metas`,
+          function: `${VIEWS_ACCOUNT_ADDRESS}::tapp_views::get_pool_metas`,
         },
       });
       return (result[0] ?? []).filter(meta => (meta.hook_type as any) > 1).map((meta) => {

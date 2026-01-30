@@ -1,10 +1,10 @@
 import { useEffect, useState } from "react";
 import { useWallet } from "@aptos-labs/wallet-adapter-react";
 import { useGauge } from "@/hooks/useGauge";
-import { usePool } from "@/hooks/usePool";
+import { PoolMeta, usePool } from "@/hooks/usePool";
 import { useUserPositions } from "@/hooks/useUserPositions";
 import { useWalletFungibleTokens } from "@/hooks/useWalletTokenAddresses";
-import { AMM_ACCOUNT_ADDRESS, VETAPP_ACCOUNT_ADDRESS } from "@/constants";
+import { AMM_ACCOUNT_ADDRESS, TAPP_ACCOUNT_ADDRESS, VETAPP_ACCOUNT_ADDRESS } from "@/constants";
 import { toast } from "@/components/ui/use-toast";
 import { aptosClient } from "@/utils/aptosClient";
 import { GaugePool } from "@/components/gauge/GaugePool";
@@ -148,15 +148,15 @@ export function Gauge() {
     }
   };
 
-  const onSwapPool = async (poolAddress: string) => {
-    if (!account || isSubmitting || !VETAPP_ACCOUNT_ADDRESS) {
+  const onSwapPool = async (poolMeta?: PoolMeta) => {
+    if (!account || isSubmitting || !TAPP_ACCOUNT_ADDRESS || !poolMeta) {
       return;
     }
 
     try {
       setIsSubmitting(true);
       const committedTransaction = await signAndSubmitTransaction(
-        swapPool({ poolAddress }),
+        swapPool({poolMeta}),
       );
       const executedTransaction = await aptosClient().waitForTransaction({
         transactionHash: committedTransaction.hash,
@@ -321,7 +321,7 @@ export function Gauge() {
               onCopy={onCopy}
               onTogglePin={onTogglePin}
               onOpenBribe={openBribeDialog}
-              onSwapPool={onSwapPool}
+              onSwapPool={() => onSwapPool(selectedPoolMeta)}
               onAddLiquidity={onAddLiquidity}
               shorten={shorten}
               isSubmitting={isSubmitting}
