@@ -22,7 +22,7 @@ export default {
         ctx.waitUntil(
           submitTx(
             {
-              functionId: `${env.ve_tapp}::helper_ve::distribute_gauges`,
+              functionId: `${env.ve_tapp_helper}::helper_ve::distribute_gauges`,
               privateKey: env.APTOS_PRIVATE_KEY,
               network: (env.VITE_APP_NETWORK ?? "testnet") as Network,
             },
@@ -31,19 +31,19 @@ export default {
         );
         break;
       }
-      case "*/5 * * * *": {
-        ctx.waitUntil(
-          submitTx(
-            {
-              functionId: `${env.ve_tapp}::helper_ve::swaps_pools`,
-              privateKey: env.APTOS_PRIVATE_KEY,
-              network: (env.VITE_APP_NETWORK ?? "testnet") as Network,
-            },
-            []
-          ),
-        );
-        break;
-      }
+      // case "*/5 * * * *": {
+      //   ctx.waitUntil(
+      //     submitTx(
+      //       {
+      //         functionId: `${env.ve_tapp}::helper_ve::swaps_pools`,
+      //         privateKey: env.APTOS_PRIVATE_KEY,
+      //         network: (env.VITE_APP_NETWORK ?? "testnet") as Network,
+      //       },
+      //       []
+      //     ),
+      //   );
+      //   break;
+      // }
       default: {
         console.error("unknown cron:", event.cron);
         break;
