@@ -32,8 +32,8 @@ export const swapPool = (args: SwapPoolArguments): InputTransactionData => {
     serializer.serialize(AccountAddress.from(args.poolMeta.pool_addr));
     serializer.serializeU64(0n);
     serializer.serializeU64(1n);
-    serializer.serializeU64(1_000_000n);
-    serializer.serializeU64(0);
+    serializer.serializeU256(1_000_000n);
+    serializer.serializeU256(0n);
   }
 
   const data = serializer.toUint8Array();
