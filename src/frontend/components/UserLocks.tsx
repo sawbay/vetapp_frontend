@@ -17,6 +17,7 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog";
+import { createLock } from "@/entry-functions/createLock";
 import { increaseUnlockTime } from "@/entry-functions/increaseUnlockTime";
 import { vote } from "@/entry-functions/vote";
 import { toastTransactionSuccess } from "@/utils/transactionToast";
@@ -439,9 +440,13 @@ function LockVoteSummary({ tokenAddress }: { tokenAddress: string }) {
 }
 
 export function UserLocks() {
-  const { account } = useWallet();
+  const { account, signAndSubmitTransaction } = useWallet();
+  const queryClient = useQueryClient();
   const [impersonationInput, setImpersonationInput] = useState("");
   const [impersonatedAddress, setImpersonatedAddress] = useState<string | null>(null);
+  const [lockValue, setLockValue] = useState("");
+  const [lockDuration, setLockDuration] = useState("");
+  const [isLockSubmitting, setIsLockSubmitting] = useState(false);
   const walletAddress = account?.address?.toString() ?? null;
   const effectiveAddress = impersonatedAddress ?? walletAddress;
   const { data, isFetching } = useLocks(effectiveAddress);
@@ -472,6 +477,51 @@ export function UserLocks() {
   const clearImpersonation = () => {
     setImpersonatedAddress(null);
     setImpersonationInput("");
+  };
+
+  const onCreateLock = async () => {
+    if (!account || isLockSubmitting) {
+      return;
+    }
+
+    const trimmedValue = lockValue.trim();
+    const trimmedDuration = lockDuration.trim();
+    const isValueValid = /^\d+$/.test(trimmedValue);
+    const isDurationValid = /^\d+$/.test(trimmedDuration);
+
+    if (!isValueValid || !isDurationValid) {
+      toast({
+        variant: "destructive",
+        title: "Error",
+        description: "Value and lock duration must be whole numbers.",
+      });
+      return;
+    }
+
+    try {
+      setIsLockSubmitting(true);
+      const committedTransaction = await signAndSubmitTransaction(
+        createLock({ value: trimmedValue, lockDuration: trimmedDuration }),
+      );
+      const executedTransaction = await aptosClient().waitForTransaction({
+        transactionHash: committedTransaction.hash,
+      });
+      if (walletAddress) {
+        queryClient.invalidateQueries({ queryKey: ["user-locks", walletAddress] });
+      }
+      toastTransactionSuccess(executedTransaction.hash);
+      setLockValue("");
+      setLockDuration("");
+    } catch (error) {
+      console.error(error);
+      toast({
+        variant: "destructive",
+        title: "Error",
+        description: "Failed to create lock.",
+      });
+    } finally {
+      setIsLockSubmitting(false);
+    }
   };
 
   useEffect(() => {
@@ -532,6 +582,39 @@ export function UserLocks() {
         <span className="text-[11px] text-muted-foreground">
           Showing {effectiveAddress ? shorten(effectiveAddress) : "no address"}.
         </span>
+      </div>
+      <div className="flex flex-col gap-2 text-xs">
+        <div className="text-sm font-medium">Create lock</div>
+        <div className="flex flex-wrap items-end gap-2">
+          <div className="flex flex-col gap-1">
+            <span className="text-xs text-muted-foreground">Value (u64)</span>
+            <Input
+              className="h-7 w-40 text-xs"
+              inputMode="numeric"
+              placeholder="e.g. 100000000"
+              value={lockValue}
+              onChange={(event) => setLockValue(event.target.value)}
+            />
+          </div>
+          <div className="flex flex-col gap-1">
+            <span className="text-xs text-muted-foreground">Lock duration (seconds)</span>
+            <Input
+              className="h-7 w-56 text-xs"
+              inputMode="numeric"
+              placeholder="e.g. 604800"
+              value={lockDuration}
+              onChange={(event) => setLockDuration(event.target.value)}
+            />
+          </div>
+          <Button
+            size="sm"
+            className="h-7 px-2 text-xs"
+            disabled={!account || isLockSubmitting}
+            onClick={onCreateLock}
+          >
+            {isLockSubmitting ? "Creating..." : "Create Lock"}
+          </Button>
+        </div>
       </div>
       {!isFetching && tokens.length === 0 ? (
         <p className="text-xs text-muted-foreground">No tokens found for this collection.</p>
