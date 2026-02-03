@@ -5,6 +5,7 @@ import { Header } from "@/components/Header";
 import { UserLocks } from "./components/UserLocks";
 import { Vote } from "@/components/Vote";
 import { Gauge } from "@/components/gauge/Gauge";
+import { Migrate } from "./components/Migrate";
 
 function App() {
   const { connected } = useWallet();
@@ -18,6 +19,7 @@ function App() {
             <CardContent className="flex flex-col gap-10 pt-6">
               <Vote />
               <UserLocks />
+              <Migrate />
               <Gauge />
               {/* <WalletDetails /> */}
               {/* <NetworkInfo />
