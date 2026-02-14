@@ -14,28 +14,22 @@ function App() {
     <>
       <Header />
       <div className="flex items-center justify-center flex-col">
-        {connected ? (
-          <Card className="w-full max-w-5xl">
-            <CardContent className="flex flex-col gap-10 pt-6">
-              <Vote />
-              <UserLocks />
-              <Migrate />
-              <Gauge />
-              {/* <WalletDetails /> */}
-              {/* <NetworkInfo />
-              <AccountInfo />
-              <TransferAPT />
-              <MessageBoard /> */}
-            </CardContent>
-          </Card>
-        ) : (
-          <CardHeader className="w-full max-w-5xl">
-            <CardContent className="flex flex-col gap-10 pt-6">
-              <Vote />
-              <CardTitle>To get started Connect a wallet</CardTitle>
-            </CardContent>
-          </CardHeader>
-        )}
+        <Card className="w-full max-w-5xl">
+          <CardContent className="flex flex-col gap-10 pt-6">
+            {/* <Migrate /> */}
+            <Gauge />
+            {
+              connected ? (
+                <>
+                  {/* <Vote /> */}
+                  {/* <UserLocks /> */}
+                </>
+              ) : (
+                <CardTitle>To get started Connect a wallet</CardTitle>
+              )
+            }
+          </CardContent>
+        </Card>
       </div>
     </>
   );

@@ -1,10 +1,16 @@
 import { useEffect, useState } from "react";
 import { useWallet } from "@aptos-labs/wallet-adapter-react";
-import { useGauge } from "@/hooks/useGauge";
+import { useQuery } from "@tanstack/react-query";
+import { MoveOption, U64 } from "@aptos-labs/ts-sdk";
 import { PoolMeta, usePool } from "@/hooks/usePool";
 import { useUserPositions } from "@/hooks/useUserPositions";
 import { useWalletFungibleTokens } from "@/hooks/useWalletTokenAddresses";
-import { AMM_ACCOUNT_ADDRESS, TAPP_ACCOUNT_ADDRESS, VETAPP_ACCOUNT_ADDRESS } from "@/constants";
+import {
+  AMM_ACCOUNT_ADDRESS,
+  TAPP_ACCOUNT_ADDRESS,
+  VE_TAPP_HELPER_ADDRESS,
+  VETAPP_ACCOUNT_ADDRESS,
+} from "@/constants";
 import { toast } from "@/components/ui/use-toast";
 import { aptosClient } from "@/utils/aptosClient";
 import { GaugePool } from "@/components/gauge/GaugePool";
@@ -13,6 +19,8 @@ import { toastTransactionSuccess } from "@/utils/transactionToast";
 import { PoolType, PoolToken } from "@/components/gauge/types";
 import { swapPool } from "@/entry-functions/swapPool";
 import { addLiquidity } from "@/entry-functions/addLiquidity";
+
+const DEFAULT_PAGE_SIZE = 200;
 
 export function Gauge() {
   const { account, signAndSubmitTransaction } = useWallet();
@@ -25,7 +33,38 @@ export function Gauge() {
   const [bribeInputs, setBribeInputs] = useState<
     Record<string, { tokenAddress: string; amount: string }>
   >({});
-  const { data, isFetching, isError } = useGauge();
+  const selectedHookType: number | undefined = undefined;
+  const offset = 0;
+  const count = DEFAULT_PAGE_SIZE;
+  const tapPoolsQuery = useQuery({
+    queryKey: [
+      "helper-ve-tapp-pools",
+      VE_TAPP_HELPER_ADDRESS,
+      selectedHookType,
+      offset,
+      count,
+    ],
+    enabled: Boolean(VE_TAPP_HELPER_ADDRESS),
+    staleTime: 60_000,
+    queryFn: async (): Promise<string[]> => {
+      if (!VE_TAPP_HELPER_ADDRESS) {
+        return [];
+      }
+      const result = await aptosClient().view<[string[]]>({
+        payload: {
+          function: `${VE_TAPP_HELPER_ADDRESS}::helper_ve::tapp_pools`,
+          functionArguments: [
+            MoveOption.U8(selectedHookType ?? undefined),
+            new U64(offset),
+            new U64(count),
+          ],
+        },
+      });
+      return result[0] ?? [];
+    },
+  });
+  const isFetching = tapPoolsQuery.isFetching;
+  const isError = tapPoolsQuery.isError;
   const { getPoolMetaSummary, poolMetaByAddress } = usePool();
   const { data: userPositions } = useUserPositions();
   const { data: walletFungibleTokens = [] } = useWalletFungibleTokens();
@@ -215,12 +254,16 @@ export function Gauge() {
     return <div className="text-sm text-muted-foreground">VETAPP address not configured.</div>;
   }
 
+  if (!VE_TAPP_HELPER_ADDRESS) {
+    return <div className="text-sm text-muted-foreground">Helper address not configured.</div>;
+  }
+
   if (isError) {
     return <div className="text-sm text-destructive">Failed to load pools.</div>;
   }
 
   const isLoading = isFetching;
-  const poolList = data?.pools ?? [];
+  const poolList = tapPoolsQuery.data ?? [];
   const userTokens = userPositions?.tokens ?? [];
   const activeBribeKey = activeBribePool?.poolKey ?? "";
   const activeBribeInput = activeBribeKey ? bribeInputs[activeBribeKey] ?? { tokenAddress: "", amount: "" } : { tokenAddress: "", amount: "" };
