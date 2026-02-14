@@ -11,7 +11,7 @@ export const gaugeUncommit = (args: GaugeUncommitArguments): InputTransactionDat
   return {
     data: {
       function: `${TAPP_ACCOUNT_ADDRESS}::ve::gauge_uncommit`,
-      functionArguments: [poolAddress, positionAddress],
+      functionArguments: [poolAddress, positionAddress, undefined],
     },
   };
 };

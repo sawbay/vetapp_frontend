@@ -6,8 +6,11 @@ import { CommittedPositions } from "@/components/gauge/CommittedPositions";
 import { MyPositions } from "@/components/gauge/MyPositions";
 import { PoolType, PoolToken } from "@/components/gauge/types";
 import { useCommittedPositions } from "@/hooks/useCommittedPositions";
+import { useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
+import { initTappSDK } from '@tapp-exchange/sdk';
 
+const sdk = initTappSDK();
 type GaugePoolProps = {
   poolAddress: string;
   poolKey: string;
@@ -43,6 +46,51 @@ export function GaugePool({
   isSubmitting,
   isWalletReady,
 }: GaugePoolProps) {
+  const { data: poolInfo, isFetching: isPoolInfoFetching, isError: isPoolInfoError } = useQuery({
+    queryKey: ["pool-info", poolAddress],
+    enabled: Boolean(poolAddress),
+    queryFn: () => sdk.Pool.getInfo(poolAddress),
+    staleTime: 30000,
+    refetchOnWindowFocus: false,
+  });
+
+  const formattedPoolMeta = useMemo(() => {
+    if (!poolAddress) {
+      return "";
+    }
+    if (isPoolInfoFetching) {
+      return "Pool info: Loading...";
+    }
+    if (isPoolInfoError) {
+      return "Pool info: unavailable";
+    }
+    if (!poolInfo) {
+      return poolMetaSummary;
+    }
+    const tokenTickersWithReserves = poolInfo.tokens
+      .map((token) => {
+        const reserve = Number(token.reserve);
+        const scaled = Number.isFinite(reserve)
+          ? reserve / Math.pow(10, token.decimals || 0)
+          : NaN;
+        const display = Number.isFinite(scaled)
+          ? (Math.floor(scaled * 100) / 100).toLocaleString(undefined, {
+              minimumFractionDigits: 2,
+              maximumFractionDigits: 2,
+            })
+          : "unknown";
+        return `${token.ticker} ${display}`;
+      })
+      .filter(Boolean)
+      .join(", ");
+    const feeTierRaw = poolInfo.feeTier ?? "";
+    const feeTier = feeTierRaw
+      ? feeTierRaw.replace(/(\.\d*?[1-9])0+$/u, "$1").replace(/\.0+$/u, "")
+      : "";
+    const poolType = poolInfo.poolType ?? "";
+    return `${poolType} - ${feeTier} - {${tokenTickersWithReserves}}`.trim();
+  }, [isPoolInfoError, isPoolInfoFetching, poolAddress, poolInfo, poolMetaSummary]);
+
   const { data: committedPositions = [], isFetching: isCommittedFetching } =
     useCommittedPositions(poolAddress);
 
@@ -82,7 +130,7 @@ export function GaugePool({
             >
               Add Liq
             </Button>
-            <span className="text-xs text-muted-foreground">{poolMetaSummary}</span>
+            <span className="text-xs text-muted-foreground">{formattedPoolMeta}</span>
           </h3>
           <div className="flex items-center gap-2">
             <Button
