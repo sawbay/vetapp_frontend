@@ -11,7 +11,7 @@ export const gaugeCommit = (args: GaugeCommitArguments): InputTransactionData =>
   return {
     data: {
       function: `${TAPP_ACCOUNT_ADDRESS}::ve::gauge_commit`,
-      functionArguments: [poolAddress, positionAddress],
+      functionArguments: [poolAddress, positionAddress, undefined],
     },
   };
 };
