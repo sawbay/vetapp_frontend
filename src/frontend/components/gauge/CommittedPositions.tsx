@@ -166,6 +166,26 @@ function PoolTokenRow({
       return result[0];
     },
   });
+  const earnedBigInt = (() => {
+    if (typeof earnedData === "bigint") {
+      return earnedData;
+    }
+    if (typeof earnedData === "number") {
+      if (!Number.isFinite(earnedData)) {
+        return 0n;
+      }
+      return BigInt(Math.floor(earnedData));
+    }
+    if (typeof earnedData === "string") {
+      try {
+        return BigInt(earnedData);
+      } catch {
+        return 0n;
+      }
+    }
+    return 0n;
+  })();
+  const isHighEarned = earnedBigInt > 100n * 100_000_000n;
   const isClmm = poolType === PoolType.CLMM;
   const claimableAccountAddress =
     poolType === PoolType.STABLE
@@ -225,13 +245,7 @@ function PoolTokenRow({
         </Button>
       </div>
       <div className="flex items-center gap-2 flex-wrap">
-        <span>
-          Earned fees:{" "}
-          {canFetchClaimable ? (claimableFetching ? "Loading..." : claimableDisplay) : "unknown"}
-        </span>
-      </div>
-      <div className="flex items-center gap-2 flex-wrap">
-        <span>
+        <span className={isHighEarned ? "text-red-500" : undefined}>
           Earned $TAPP:{" "}
           {positionAddress
             ? earnedFetching
