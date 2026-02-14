@@ -368,7 +368,7 @@ export function Gauge() {
       ) : null}
       {!isLoading && poolList.length > 0 ? (
         <div className="flex flex-col gap-4">
-          <div className="flex gap-2 overflow-x-auto pb-2">
+          <div className="flex max-h-32 flex-wrap gap-2 overflow-y-auto pb-2">
             {orderedPools.map(({ poolAddress, poolKey }) => {
               const buttonActive = selectedPoolKey === poolKey;
               const buttonPinned = pinnedSet.has(poolKey);
@@ -376,7 +376,7 @@ export function Gauge() {
                 <button
                   key={poolKey}
                   type="button"
-                  className={`inline-flex max-w-[140px] items-center gap-1 truncate whitespace-nowrap rounded border px-3 py-1 text-xs font-medium transition ${
+                  className={`inline-flex min-w-[140px] max-w-[220px] items-center gap-1 truncate whitespace-nowrap rounded border px-3 py-1 text-xs font-medium transition ${
                     buttonActive
                       ? "border-emerald-500 bg-emerald-50 text-emerald-900"
                       : "border-input bg-background hover:border-primary"
