@@ -147,7 +147,7 @@ export function MyPositions({
                 position: {
                   positionAddr: position.positionAddr,
                   mintedShare: BigInt(position.mintedShare),
-                  amounts: position.estimatedWithdrawals.map((entry) => BigInt(entry.amount)),
+                  amounts: position.estimatedWithdrawals.map(() => 0),
                 },
               })
             : tappSdk.Position.removeSingleAMMLiquidity({
