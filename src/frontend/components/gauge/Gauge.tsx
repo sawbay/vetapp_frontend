@@ -234,8 +234,28 @@ export function Gauge() {
       if (!tappSdk) {
         return [];
       }
-      const result = await tappSdk.Pool.getPools({ page: 1, size: 200, sortBy: "tvl" });
-      return result.data?.map((pool) => pool.poolId) ?? [];
+      const poolIds: string[] = [];
+      const pageSize = 200;
+      const limit = 30;
+      let page = 1;
+      let total = Number.POSITIVE_INFINITY;
+
+      while (poolIds.length < total && poolIds.length < limit) {
+        const result = await tappSdk.Pool.getPools({
+          page,
+          size: pageSize,
+          sortBy: "tvl",
+        });
+        const pageIds = result.data?.map((pool) => pool.poolId) ?? [];
+        total = Number.isFinite(result.total) ? result.total : pageIds.length;
+        poolIds.push(...pageIds);
+        if (pageIds.length === 0) {
+          break;
+        }
+        page += 1;
+      }
+
+      return poolIds.slice(0, limit);
     },
   });
   const poolList = isMainnet ? tappPools : poolMetas.map((meta) => meta.pool_addr).filter(Boolean);
