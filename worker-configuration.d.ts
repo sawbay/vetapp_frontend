@@ -8,9 +8,9 @@ declare namespace Cloudflare {
 	interface Env {
 		PROJECT_NAME: "vetappfrontend";
 		VITE_APP_NETWORK: "testnet";
-		amm: "0xf4ca29658de9f34480a6b35a3a64e91320e45747e023525aa8c7d31d4fdf1566";
+		amm: "0xd8c003ffe8b543b3d309345c6a38a621c3bba67b7b4a2c1f700cec8cac58238f";
 		bonding_curve: "0xb0cfb7e99d198710b9531166793389d1eef0b83cc9b60d5d37192e47f8a72352";
-		clmm: "0x08c25945c927dbd80cfbbd5e3692c67c77f2ac783cb6b7bf68d723a5cbf1ba62";
+		clmm: "0x44a55d704e2c797a14899c67117006acda507bf19522e501aa5dfeab5e0c9594";
 		escrow: "0xd65e4d64e11f684c3e6033b729e8123583955a49fd562fb11abf54e552b39159";
 		gauge: "0xe7e2058e8b66f6d8abf97e3ffb0d82b5ff3dbb02498ad2018e48ce6b125bde76";
 		nft_springboard: "0x7a0f3fa065bf6fe96ccfcefe1d55a818cb83f8ee426c345e73b4d037e0ccf220";

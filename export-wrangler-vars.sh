@@ -18,6 +18,7 @@ awk '
     map["ve_tapp"]="VITE_MODULE_VETAPP_ACCOUNT_ADDRESS"
     map["ve_tapp_lib"]="VITE_MODULE_VETAPP_LIB_ACCOUNT_ADDRESS"
     map["ve_tapp_helper"]="VITE_MODULE_VETAPP_HELPER_ACCOUNT_ADDRESS"
+    map["sor"]="VITE_MODULE_SOR_ACCOUNT_ADDRESS"
   }
   /^\[vars\]/ { invars=1; next }
   /^\[/ { invars=0 }

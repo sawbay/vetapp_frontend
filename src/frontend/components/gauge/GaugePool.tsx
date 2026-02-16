@@ -17,6 +17,7 @@ type GaugePoolProps = {
   isPinned: boolean;
   onCopy: (value: string) => void;
   onTogglePin: (poolKey: string) => void;
+  onRemovePool: (poolAddress: string) => void;
   onOpenBribe: (poolAddress: string, poolKey: string) => void;
   onSwapPool: (poolAddress: string) => void;
   onAddLiquidity: (poolAddress: string) => void;
@@ -34,6 +35,7 @@ export function GaugePool({
   isPinned,
   onCopy,
   onTogglePin,
+  onRemovePool,
   onOpenBribe,
   onSwapPool,
   onAddLiquidity,
@@ -82,14 +84,25 @@ export function GaugePool({
             </Button>
             <span className="text-xs text-muted-foreground">{poolMetaSummary}</span>
           </h3>
-          <Button
-            size="sm"
-            className="h-7 px-2 text-xs bg-[#39ff14] text-black hover:bg-[#2fe011]"
-            disabled={isSubmitting}
-            onClick={() => onTogglePin(poolKey)}
-          >
-            {isPinned ? "Unpin" : "Pin"}
-          </Button>
+          <div className="flex items-center gap-2">
+            <Button
+              size="sm"
+              className="h-7 px-2 text-xs bg-[#39ff14] text-black hover:bg-[#2fe011]"
+              disabled={isSubmitting}
+              onClick={() => onTogglePin(poolKey)}
+            >
+              {isPinned ? "Unpin" : "Pin"}
+            </Button>
+            <Button
+              size="sm"
+              variant="destructive"
+              className="h-7 px-2 text-xs"
+              disabled={isSubmitting}
+              onClick={() => onRemovePool(poolAddress)}
+            >
+              Remove
+            </Button>
+          </div>
         </div>
 
         <Left poolAddress={poolAddress} />

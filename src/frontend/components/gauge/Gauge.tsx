@@ -1,10 +1,13 @@
 import { useEffect, useState } from "react";
 import { useWallet } from "@aptos-labs/wallet-adapter-react";
-import { useGauge } from "@/hooks/useGauge";
 import { PoolMeta, usePool } from "@/hooks/usePool";
 import { useUserPositions } from "@/hooks/useUserPositions";
 import { useWalletFungibleTokens } from "@/hooks/useWalletTokenAddresses";
-import { AMM_ACCOUNT_ADDRESS, TAPP_ACCOUNT_ADDRESS, VETAPP_ACCOUNT_ADDRESS } from "@/constants";
+import {
+  AMM_ACCOUNT_ADDRESS,
+  TAPP_ACCOUNT_ADDRESS,
+  VETAPP_ACCOUNT_ADDRESS,
+} from "@/constants";
 import { toast } from "@/components/ui/use-toast";
 import { aptosClient } from "@/utils/aptosClient";
 import { GaugePool } from "@/components/gauge/GaugePool";
@@ -25,7 +28,22 @@ export function Gauge() {
   const [bribeInputs, setBribeInputs] = useState<
     Record<string, { tokenAddress: string; amount: string }>
   >({});
-  const { data, isFetching, isError } = useGauge();
+  const [manualPoolInput, setManualPoolInput] = useState("");
+  const [manualPools, setManualPools] = useState<string[]>(() => {
+    if (typeof window === "undefined") {
+      return [];
+    }
+    try {
+      const raw = window.localStorage.getItem("manual-gauge-pools");
+      if (!raw) {
+        return [];
+      }
+      const parsed = JSON.parse(raw);
+      return Array.isArray(parsed) ? parsed.filter((item) => typeof item === "string") : [];
+    } catch {
+      return [];
+    }
+  });
   const { getPoolMetaSummary, poolMetaByAddress } = usePool();
   const { data: userPositions } = useUserPositions();
   const { data: walletFungibleTokens = [] } = useWalletFungibleTokens();
@@ -83,6 +101,33 @@ export function Gauge() {
   const normalizeAddress = (address: string) => {
     const normalized = address.toLowerCase();
     return normalized.startsWith("0x") ? normalized : `0x${normalized}`;
+  };
+
+  const addManualPool = () => {
+    const value = manualPoolInput.trim();
+    if (!value) {
+      return;
+    }
+    if (!/^0x?[a-fA-F0-9]+$/.test(value)) {
+      toast({
+        variant: "destructive",
+        title: "Invalid address",
+        description: "Pool address must be a hex address.",
+      });
+      return;
+    }
+    const normalized = normalizeAddress(value);
+    setManualPools((prev) => {
+      if (prev.includes(normalized)) {
+        return prev;
+      }
+      return [...prev, normalized];
+    });
+    setManualPoolInput("");
+  };
+
+  const removeManualPool = (poolAddress: string) => {
+    setManualPools((prev) => prev.filter((item) => item !== poolAddress));
   };
 
   const onDistributeBribes = async (poolAddress: string, poolKey: string) => {
@@ -215,12 +260,8 @@ export function Gauge() {
     return <div className="text-sm text-muted-foreground">VETAPP address not configured.</div>;
   }
 
-  if (isError) {
-    return <div className="text-sm text-destructive">Failed to load pools.</div>;
-  }
-
-  const isLoading = isFetching;
-  const poolList = data?.pools ?? [];
+  const isLoading = false;
+  const poolList = manualPools;
   const userTokens = userPositions?.tokens ?? [];
   const activeBribeKey = activeBribePool?.poolKey ?? "";
   const activeBribeInput = activeBribeKey ? bribeInputs[activeBribeKey] ?? { tokenAddress: "", amount: "" } : { tokenAddress: "", amount: "" };
@@ -277,11 +318,49 @@ export function Gauge() {
     }
   }, [pinnedPools]);
 
+  useEffect(() => {
+    if (typeof window === "undefined") {
+      return;
+    }
+    try {
+      window.localStorage.setItem("manual-gauge-pools", JSON.stringify(manualPools));
+    } catch {
+      // Ignore storage errors.
+    }
+  }, [manualPools]);
+
   return (
     <div className="flex flex-col gap-6">
       <div className="flex items-center justify-between gap-4">
         <h4 className="text-lg font-medium">Gauge pools</h4>
         <div className="text-sm text-muted-foreground">Pools: {poolList.length}</div>
+      </div>
+      <div className="flex flex-wrap items-end gap-3 rounded border border-input bg-background/40 p-3">
+        <label className="flex flex-1 min-w-[220px] flex-col gap-1">
+          <span className="text-[11px] font-semibold uppercase tracking-[0.2em] text-muted-foreground">
+            Add pool address
+          </span>
+          <input
+            type="text"
+            className="rounded border border-border bg-background px-2 py-1 text-xs focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+            placeholder="0x..."
+            value={manualPoolInput}
+            onChange={(event) => setManualPoolInput(event.target.value)}
+            onKeyDown={(event) => {
+              if (event.key === "Enter") {
+                event.preventDefault();
+                addManualPool();
+              }
+            }}
+          />
+        </label>
+        <button
+          type="button"
+          className="inline-flex items-center justify-center rounded border border-input bg-background px-3 py-1 text-xs font-medium transition hover:border-primary"
+          onClick={addManualPool}
+        >
+          Add
+        </button>
       </div>
       {isLoading ? <div className="text-sm text-muted-foreground">Loading...</div> : null}
       {!isLoading && poolList.length === 0 ? (
@@ -289,7 +368,7 @@ export function Gauge() {
       ) : null}
       {!isLoading && poolList.length > 0 ? (
         <div className="flex flex-col gap-4">
-          <div className="flex flex-wrap gap-2 pb-2">
+          <div className="flex max-h-32 flex-wrap gap-2 overflow-y-auto pb-2">
             {orderedPools.map(({ poolAddress, poolKey }) => {
               const buttonActive = selectedPoolKey === poolKey;
               const buttonPinned = pinnedSet.has(poolKey);
@@ -297,7 +376,7 @@ export function Gauge() {
                 <button
                   key={poolKey}
                   type="button"
-                  className={`inline-flex items-center gap-1 rounded border px-3 py-1 text-xs font-medium transition ${
+                  className={`inline-flex min-w-[140px] max-w-[220px] items-center gap-1 truncate whitespace-nowrap rounded border px-3 py-1 text-xs font-medium transition ${
                     buttonActive
                       ? "border-emerald-500 bg-emerald-50 text-emerald-900"
                       : "border-input bg-background hover:border-primary"
@@ -320,6 +399,7 @@ export function Gauge() {
               isPinned={selectedIsPinned}
               onCopy={onCopy}
               onTogglePin={onTogglePin}
+              onRemovePool={removeManualPool}
               onOpenBribe={openBribeDialog}
               onSwapPool={() => onSwapPool(selectedPoolMeta)}
               onAddLiquidity={onAddLiquidity}
