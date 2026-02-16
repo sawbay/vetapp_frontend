@@ -38,6 +38,9 @@ export function MyPositions({
   const isMainnet = NETWORK?.toLowerCase() === "mainnet";
   const tappSdk = isMainnet ? initTappSDK() : null;
 
+  const normalizeSdkPayloadArguments = (args: unknown[]) =>
+    args.map((arg) => (arg instanceof Uint8Array ? Array.from(arg) : arg));
+
   const onCommit = async (positionAddress: string) => {
     if (!account || isBusy) {
       return;
@@ -131,32 +134,35 @@ export function MyPositions({
       const removePayload =
         poolType === PoolType.CLMM
           ? tappSdk.Position.removeSingleCLMMLiquidity({
-              poolId: poolAddress,
-              positionAddr: positionAddress,
+              poolId: position.poolId,
+              positionAddr: position.positionAddr,
               mintedShare: BigInt(position.mintedShare),
               minAmount0: 0,
               minAmount1: 0,
             })
           : poolType === PoolType.STABLE
             ? tappSdk.Position.removeSingleStableLiquidity({
-                poolId: poolAddress,
+                poolId: position.poolId,
                 liquidityType: LiquidityType.Ratio,
                 position: {
-                  positionAddr: positionAddress,
+                  positionAddr: position.positionAddr,
                   mintedShare: BigInt(position.mintedShare),
                   amounts: position.estimatedWithdrawals.map((entry) => BigInt(entry.amount)),
                 },
               })
             : tappSdk.Position.removeSingleAMMLiquidity({
-                poolId: poolAddress,
-                positionAddr: positionAddress,
+                poolId: position.poolId,
+                positionAddr: position.positionAddr,
                 mintedShare: BigInt(position.mintedShare),
                 minAmount0: 0,
                 minAmount1: 0,
               });
 
       const removeTransaction: InputTransactionData = {
-        data: removePayload as InputTransactionData["data"],
+        data: {
+          ...removePayload,
+          functionArguments: normalizeSdkPayloadArguments(removePayload.functionArguments ?? []),
+        } as InputTransactionData["data"],
       };
       const committedTransaction = await signAndSubmitTransaction(removeTransaction);
       const executedTransaction = await aptosClient().waitForTransaction({
@@ -173,7 +179,7 @@ export function MyPositions({
       toast({
         variant: "destructive",
         title: "Error",
-        description: "Failed to remove liquidity.",
+        description: `Failed to remove liquidity${error instanceof Error ? `: ${error.message}` : "."}`,
       });
     } finally {
       setIsSubmittingLocal(false);
