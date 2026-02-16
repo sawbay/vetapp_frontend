@@ -57,7 +57,7 @@ export function QuickAccess() {
 
     try {
       setIsSubmitting(true);
-      const committedTransaction = await signAndSubmitTransaction(mintTapp());
+      const committedTransaction = await signAndSubmitTransaction(mintTapp(account.address));
       const executedTransaction = await aptosClient().waitForTransaction({
         transactionHash: committedTransaction.hash,
       });
