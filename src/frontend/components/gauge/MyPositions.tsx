@@ -1,8 +1,9 @@
 import { useState } from "react";
 import { InputTransactionData, useWallet } from "@aptos-labs/wallet-adapter-react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { initTappSDK, LiquidityType } from "@tapp-exchange/sdk";
-import { AMM_ACCOUNT_ADDRESS, CLMM_ACCOUNT_ADDRESS, NETWORK, STABLE_ACCOUNT_ADDRESS } from "@/constants";
+import { initTappSDK } from "@tapp-exchange/sdk";
+import { AccountAddress, Serializer } from "@aptos-labs/ts-sdk";
+import { AMM_ACCOUNT_ADDRESS, CLMM_ACCOUNT_ADDRESS, NETWORK, STABLE_ACCOUNT_ADDRESS, TAPP_ACCOUNT_ADDRESS } from "@/constants";
 import { aptosClient } from "@/utils/aptosClient";
 import { formatNumber8 } from "@/utils/format";
 import { Button } from "@/components/ui/button";
@@ -76,6 +77,23 @@ export function MyPositions({
     return null;
   };
 
+  const serializeStableRemoveLiquidityArgs = (
+    stablePoolId: string,
+    stablePositionAddress: string,
+    positionShares: bigint,
+    minAmounts: bigint[],
+  ) => {
+    const serializer = new Serializer();
+    serializer.serialize(AccountAddress.fromString(stablePoolId));
+    serializer.serialize(AccountAddress.fromString(stablePositionAddress));
+    serializer.serializeU8(2);
+    serializer.serializeU256(positionShares);
+    serializer.serializeU32AsUleb128(minAmounts.length);
+    minAmounts.forEach((amount) => serializer.serializeU256(amount));
+    return serializer.toUint8Array();
+  };
+
+
   const onCommit = async (positionAddress: string) => {
     if (!account || isBusy) {
       return;
@@ -145,7 +163,7 @@ export function MyPositions({
       return;
     }
 
-    if (!isMainnet || !tappSdk) {
+    if (!isMainnet || !tappSdk || !TAPP_ACCOUNT_ADDRESS) {
       toast({
         variant: "destructive",
         title: "Error",
@@ -171,15 +189,21 @@ export function MyPositions({
               minAmount1: 0,
             })
           : poolType === PoolType.STABLE
-            ? tappSdk.Position.removeSingleStableLiquidity({
-                poolId: position.poolId,
-                liquidityType: LiquidityType.Ratio,
-                position: {
-                  positionAddr: position.positionAddr,
-                  mintedShare: BigInt(position.mintedShare),
-                  amounts: position.estimatedWithdrawals.map(() => 0),
-                },
-              })
+            ? {
+                function: `${TAPP_ACCOUNT_ADDRESS}::router::remove_liquidity`,
+                functionArguments: [
+                  Array.from(
+                    serializeStableRemoveLiquidityArgs(
+                      position.poolId,
+                      position.positionAddr,
+                      BigInt(position.mintedShare),
+                      (position.estimatedWithdrawals.length > 0
+                        ? position.estimatedWithdrawals
+                        : [{ amount: "0" }, { amount: "0" }]).map(() => 0n),
+                    ),
+                  ),
+                ],
+              }
             : tappSdk.Position.removeSingleAMMLiquidity({
                 poolId: position.poolId,
                 positionAddr: position.positionAddr,
