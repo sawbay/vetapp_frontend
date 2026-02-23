@@ -19,6 +19,7 @@ import {
 } from "@/components/ui/dialog";
 import { createLock } from "@/entry-functions/createLock";
 import { increaseUnlockTime } from "@/entry-functions/increaseUnlockTime";
+import { claimRebase } from "@/entry-functions/claimRebase";
 import { vote } from "@/entry-functions/vote";
 import { toastTransactionSuccess } from "@/utils/transactionToast";
 import { formatNumber8 } from "@/utils/format";
@@ -447,6 +448,7 @@ export function UserLocks() {
   const [lockValue, setLockValue] = useState("");
   const [lockDuration, setLockDuration] = useState("");
   const [isLockSubmitting, setIsLockSubmitting] = useState(false);
+  const [isClaimingByToken, setIsClaimingByToken] = useState<Record<string, boolean>>({});
   const walletAddress = account?.address?.toString() ?? null;
   const effectiveAddress = impersonatedAddress ?? walletAddress;
   const { data, isFetching } = useLocks(effectiveAddress);
@@ -521,6 +523,41 @@ export function UserLocks() {
       });
     } finally {
       setIsLockSubmitting(false);
+    }
+  };
+
+  const onClaimRebase = async (tokenAddress: string) => {
+    if (!account || !tokenAddress || isClaimingByToken[tokenAddress]) {
+      return;
+    }
+    if (!VETAPP_ACCOUNT_ADDRESS) {
+      toast({
+        variant: "destructive",
+        title: "Error",
+        description: "VETAPP address not configured.",
+      });
+      return;
+    }
+
+    try {
+      setIsClaimingByToken((prev) => ({ ...prev, [tokenAddress]: true }));
+      const committedTransaction = await signAndSubmitTransaction(
+        claimRebase({ tokenAddress }),
+      );
+      const executedTransaction = await aptosClient().waitForTransaction({
+        transactionHash: committedTransaction.hash,
+      });
+      queryClient.invalidateQueries({ queryKey: ["lock-info", tokenAddress, tokenAddress] });
+      toastTransactionSuccess(executedTransaction.hash);
+    } catch (error) {
+      console.error(error);
+      toast({
+        variant: "destructive",
+        title: "Error",
+        description: "Failed to claim rebase.",
+      });
+    } finally {
+      setIsClaimingByToken((prev) => ({ ...prev, [tokenAddress]: false }));
     }
   };
 
@@ -668,6 +705,14 @@ export function UserLocks() {
                     <LockInfo token={token} />
                     <div className="flex items-center justify-between gap-2">
                       <LockVoteSummary tokenAddress={token.token_data_id} />
+                      <Button
+                        size="sm"
+                        className="h-7 px-2 text-xs"
+                        disabled={!account || isClaimingByToken[token.token_data_id]}
+                        onClick={() => onClaimRebase(token.token_data_id)}
+                      >
+                        {isClaimingByToken[token.token_data_id] ? "Claiming..." : "Claim Rebase"}
+                      </Button>
                       <Dialog
                         open={openVoteTokenId === token.token_data_id}
                         onOpenChange={(open) =>
