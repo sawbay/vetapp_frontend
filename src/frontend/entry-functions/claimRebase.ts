@@ -10,7 +10,7 @@ export const claimRebase = (args: ClaimRebaseArguments): InputTransactionData =>
 
   return {
     data: {
-      function: `${VETAPP_ACCOUNT_ADDRESS}::rewards_distributor::claim`,
+      function: `${VETAPP_ACCOUNT_ADDRESS}::rewards_distributor::claim_rebase`,
       functionArguments: [tokenAddress],
     },
   };
