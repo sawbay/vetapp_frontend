@@ -149,12 +149,27 @@ function PoolTokenRow({
   isSubmitting,
   isWalletReady,
 }: PoolTokenRowProps) {
+  const { account } = useWallet();
   const tokenName = token.current_token_data?.token_name ?? "";
-  const positionIdx = Number(tokenName.split("_")[1]);
+  const positionIdx = Number.parseInt(tokenName.split("_")[1] ?? "", 10);
+  const hasValidPositionIdx = Number.isInteger(positionIdx) && positionIdx >= 0;
   const positionAddress = token.token_data_id;
+  const { data: ownerData, isFetching: ownerFetching } = useQuery({
+    queryKey: ["gauge-owner-of", poolAddress, positionIdx],
+    enabled: Boolean(GAUGE_ACCOUNT_ADDRESS && hasValidPositionIdx),
+    queryFn: async (): Promise<string> => {
+      const result = await aptosClient().view<[string]>({
+        payload: {
+          function: `${GAUGE_ACCOUNT_ADDRESS}::gauge::owner_of`,
+          functionArguments: [poolAddress, positionIdx],
+        },
+      });
+      return result[0] ?? "";
+    },
+  });
   const { data: earnedData, isFetching: earnedFetching } = useQuery({
     queryKey: ["gauge-earned", poolAddress, positionAddress],
-    enabled: Boolean(GAUGE_ACCOUNT_ADDRESS && positionAddress),
+    enabled: Boolean(GAUGE_ACCOUNT_ADDRESS && positionAddress && hasValidPositionIdx),
     queryFn: async (): Promise<string | number | bigint> => {
       const result = await aptosClient().view<[string | number | bigint]>({
         payload: {
@@ -165,6 +180,10 @@ function PoolTokenRow({
       return result[0];
     },
   });
+  const ownerAddress = ownerData?.toLowerCase();
+  const accountAddress = account?.address.toString().toLowerCase();
+  const isOwnerMatch =
+    Boolean(accountAddress) && Boolean(ownerAddress) && accountAddress === ownerAddress;
   const earnedBigInt = (() => {
     if (typeof earnedData === "bigint") {
       return earnedData;
@@ -186,15 +205,29 @@ function PoolTokenRow({
   })();
   const isHighEarned = earnedBigInt > 100n * 100_000_000n;
   return (
-    <div className="text pl-4 flex flex-col gap-2">
+    <div
+      className={`text pl-4 flex flex-col gap-2 rounded-md border p-2 ${
+        isOwnerMatch ? "border-[#39ff14] bg-[#39ff14]/10" : "border-transparent"
+      }`}
+    >
       <div className="flex items-center gap-2 flex-wrap">
-        <span>PositionID #{positionIdx}</span>
+        <span>PositionID #{hasValidPositionIdx ? positionIdx : "unknown"}</span>
         <code
           className="border border-input rounded px-2 py-1"
           onClick={() => onCopy(token.token_data_id)}
         >
           {shorten(token.token_data_id)}
         </code>
+        <span>Owner:</span>
+        {ownerFetching ? (
+          <span className="text-muted-foreground">Loading...</span>
+        ) : ownerData ? (
+          <code className="border border-input rounded px-2 py-1" onClick={() => onCopy(ownerData)}>
+            {shorten(ownerData)}
+          </code>
+        ) : (
+          <span className="text-muted-foreground">unknown</span>
+        )}
         <Button
           size="sm"
           className="h-7 px-2 text-xs"
