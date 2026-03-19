@@ -1,10 +1,11 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useWallet } from "@aptos-labs/wallet-adapter-react";
+import { initTappSDK } from "@tapp-exchange/sdk";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useLocks } from "@/hooks/useLocks";
 import { toast } from "@/components/ui/use-toast";
 import { aptosClient } from "@/utils/aptosClient";
-import { GAUGE_ACCOUNT_ADDRESS, VETAPP_ACCOUNT_ADDRESS } from "@/constants";
+import { GAUGE_ACCOUNT_ADDRESS, NETWORK, VETAPP_ACCOUNT_ADDRESS } from "@/constants";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import {
@@ -20,10 +21,11 @@ import {
 import { createLock } from "@/entry-functions/createLock";
 import { increaseUnlockTime } from "@/entry-functions/increaseUnlockTime";
 import { claimRebase } from "@/entry-functions/claimRebase";
+import { reset } from "@/entry-functions/reset";
 import { vote } from "@/entry-functions/vote";
 import { toastTransactionSuccess } from "@/utils/transactionToast";
 import { formatNumber8 } from "@/utils/format";
-import { useGauge } from "@/hooks/useGauge";
+import { usePool } from "@/hooks/usePool";
 
 type PoolVotesProps = {
   tokenAddress: string;
@@ -181,15 +183,48 @@ function LockInfo({ token }: { token: LockToken }) {
 
 function PoolVotes({ tokenAddress, onCopy, shorten, enabled = true }: PoolVotesProps) {
   const { account, signAndSubmitTransaction } = useWallet();
-  const gaugesEnabled = Boolean(tokenAddress && VETAPP_ACCOUNT_ADDRESS);
-  const { data: gaugeData, isFetching: isGaugeFetching } = useGauge(gaugesEnabled && enabled);
   const queryClient = useQueryClient();
   const [weightInputs, setWeightInputs] = useState<Record<string, string>>({});
   const [isVoting, setIsVoting] = useState(false);
   const [selectedPool, setSelectedPool] = useState<string | null>(null);
+  const { data: poolMetas = [] } = usePool();
+  const isMainnet = NETWORK?.toLowerCase() === "mainnet";
+  const tappSdk = useMemo(() => (isMainnet ? initTappSDK() : null), [isMainnet]);
+  const { data: tappPools = [], isFetching: isTappPoolsFetching } = useQuery({
+    queryKey: ["tapp-pools"],
+    enabled: isMainnet,
+    queryFn: async () => {
+      if (!tappSdk) {
+        return [];
+      }
+      const poolIds: string[] = [];
+      const pageSize = 200;
+      const limit = 30;
+      let page = 1;
+      let total = Number.POSITIVE_INFINITY;
+
+      while (poolIds.length < total && poolIds.length < limit) {
+        const result = await tappSdk.Pool.getPools({
+          page,
+          size: pageSize,
+          sortBy: "tvl",
+        });
+        const pageIds = result.data?.map((pool) => pool.poolId) ?? [];
+        total = Number.isFinite(result.total) ? result.total : pageIds.length;
+        poolIds.push(...pageIds);
+        if (pageIds.length === 0) {
+          break;
+        }
+        page += 1;
+      }
+
+      return poolIds.slice(0, limit);
+    },
+  });
+  const pools = isMainnet ? tappPools : poolMetas.map((meta) => meta.pool_addr).filter(Boolean);
   const { data: voteData, isFetching: isVoteFetching } = useQuery({
-    queryKey: ["pool-votes", tokenAddress, gaugeData?.pools?.length ?? 0],
-    enabled: Boolean(VETAPP_ACCOUNT_ADDRESS) && enabled && !isGaugeFetching,
+    queryKey: ["pool-votes", tokenAddress],
+    enabled: Boolean(VETAPP_ACCOUNT_ADDRESS) && enabled,
     queryFn: async (): Promise<{
       voted: boolean;
       pools: string[];
@@ -247,7 +282,6 @@ function PoolVotes({ tokenAddress, onCopy, shorten, enabled = true }: PoolVotesP
       };
     },
   });
-  const pools = gaugeData?.pools ?? [];
   useEffect(() => {
     if (pools.length === 0) {
       return;
@@ -310,7 +344,7 @@ function PoolVotes({ tokenAddress, onCopy, shorten, enabled = true }: PoolVotesP
     return <span className="text-xs text-muted-foreground">VETAPP address not configured.</span>;
   }
 
-  if (isGaugeFetching || isVoteFetching) {
+  if (isVoteFetching || (isMainnet && isTappPoolsFetching)) {
     return <span className="text-xs text-muted-foreground">Loading votes...</span>;
   }
   if (pools.length === 0) {
@@ -449,6 +483,7 @@ export function UserLocks() {
   const [lockDuration, setLockDuration] = useState("");
   const [isLockSubmitting, setIsLockSubmitting] = useState(false);
   const [isClaimingByToken, setIsClaimingByToken] = useState<Record<string, boolean>>({});
+  const [isResettingByToken, setIsResettingByToken] = useState<Record<string, boolean>>({});
   const walletAddress = account?.address?.toString() ?? null;
   const effectiveAddress = impersonatedAddress ?? walletAddress;
   const { data, isFetching } = useLocks(effectiveAddress);
@@ -558,6 +593,41 @@ export function UserLocks() {
       });
     } finally {
       setIsClaimingByToken((prev) => ({ ...prev, [tokenAddress]: false }));
+    }
+  };
+
+  const onResetVote = async (tokenAddress: string) => {
+    if (!account || !tokenAddress || isResettingByToken[tokenAddress]) {
+      return;
+    }
+    if (!VETAPP_ACCOUNT_ADDRESS) {
+      toast({
+        variant: "destructive",
+        title: "Error",
+        description: "VETAPP address not configured.",
+      });
+      return;
+    }
+
+    try {
+      setIsResettingByToken((prev) => ({ ...prev, [tokenAddress]: true }));
+      const committedTransaction = await signAndSubmitTransaction(
+        reset({ tokenAddress }),
+      );
+      const executedTransaction = await aptosClient().waitForTransaction({
+        transactionHash: committedTransaction.hash,
+      });
+      queryClient.invalidateQueries({ queryKey: ["pool-votes", tokenAddress] });
+      toastTransactionSuccess(executedTransaction.hash);
+    } catch (error) {
+      console.error(error);
+      toast({
+        variant: "destructive",
+        title: "Error",
+        description: "Failed to reset vote.",
+      });
+    } finally {
+      setIsResettingByToken((prev) => ({ ...prev, [tokenAddress]: false }));
     }
   };
 
@@ -704,7 +774,6 @@ export function UserLocks() {
                     </span>
                     <LockInfo token={token} />
                     <div className="flex items-center justify-between gap-2">
-                      <LockVoteSummary tokenAddress={token.token_data_id} />
                       <Button
                         size="sm"
                         className="h-7 px-2 text-xs"
@@ -712,6 +781,20 @@ export function UserLocks() {
                         onClick={() => onClaimRebase(token.token_data_id)}
                       >
                         {isClaimingByToken[token.token_data_id] ? "Claiming..." : "Claim Rebase"}
+                      </Button>
+                    </div>
+                    <hr></hr>
+                    <div className="flex items-center justify-between gap-2">
+                      <LockVoteSummary tokenAddress={token.token_data_id} />
+                    </div>
+                    <div className="flex items-center justify-between gap-2">
+                      <Button
+                        size="sm"
+                        className="h-7 px-2 text-xs"
+                        disabled={!account || isResettingByToken[token.token_data_id]}
+                        onClick={() => onResetVote(token.token_data_id)}
+                      >
+                        {isResettingByToken[token.token_data_id] ? "Resetting..." : "Reset"}
                       </Button>
                       <Dialog
                         open={openVoteTokenId === token.token_data_id}
@@ -725,7 +808,7 @@ export function UserLocks() {
                             className="h-7 px-2 text-xs"
                             disabled={!account}
                           >
-                            View voted pools
+                            Vote
                           </Button>
                         </DialogTrigger>
                         <DialogContent className="max-w-[min(90vw,800px)]">
