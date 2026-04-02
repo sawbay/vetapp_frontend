@@ -320,12 +320,18 @@ export function Gauge() {
         : tappPoolInfo.poolType === TappPoolType.STABLE
           ? "STABLE"
           : "V2";
+    const assets = tappPoolInfo.tokens?.map((token) => token.addr).filter(Boolean) ?? [];
     const reserves = tappPoolInfo.tokens?.map((token) => token.reserve) ?? [];
+    const assetsDisplay = assets.length > 0 ? assets.join(", ") : "unknown";
+    const tvl = reserves.reduce((sum, value) => sum + (Number(value) || 0), 0);
     const reservesDisplay = `[${reserves.map((value) => formatNumber8(value)).join(", ")}]`;
     return {
       pool_addr: tappPoolInfo.poolId,
       hook_type: hookType,
       hook_type_label: hookTypeLabel,
+      assets,
+      assets_display: assetsDisplay,
+      tvl,
       reserves,
       reserves_display: reservesDisplay,
     };

@@ -1,3 +1,5 @@
+import { NavLink } from "react-router-dom";
+import { Button } from "@/components/ui/button";
 import { WalletSelector } from "./WalletSelector";
 
 const relativeTimeFormatter = new Intl.RelativeTimeFormat("en", { numeric: "auto" });
@@ -50,6 +52,23 @@ export function Header() {
       </div>
 
       <div className="flex gap-2 items-center flex-wrap">
+        <Button variant="ghost" size="sm" asChild>
+          <NavLink
+            to="/"
+            className={({ isActive }) => (isActive ? "font-semibold" : undefined)}
+            end
+          >
+            Home
+          </NavLink>
+        </Button>
+        <Button variant="ghost" size="sm" asChild>
+          <NavLink
+            to="/pools"
+            className={({ isActive }) => (isActive ? "font-semibold" : undefined)}
+          >
+            Pools
+          </NavLink>
+        </Button>
         <WalletSelector />
       </div>
     </div>

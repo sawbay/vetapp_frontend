@@ -4,6 +4,7 @@ import "./index.css";
 import React from "react";
 import ReactDOM from "react-dom/client";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import { HashRouter } from "react-router-dom";
 
 import App from "@/App.tsx";
 // Internal components
@@ -23,9 +24,11 @@ ReactDOM.createRoot(document.getElementById("root")!).render(
   <React.StrictMode>
     <WalletProvider>
       <QueryClientProvider client={queryClient}>
-        <App />
-        <WrongNetworkAlert />
-        <Toaster />
+        <HashRouter>
+          <App />
+          <WrongNetworkAlert />
+          <Toaster />
+        </HashRouter>
       </QueryClientProvider>
     </WalletProvider>
   </React.StrictMode>,
