@@ -1,6 +1,6 @@
 import { useCallback, useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { initTappSDK, PoolType as TappPoolType } from "@tapp-exchange/sdk";
+import { initTappSDK, PoolToken, PoolType as TappPoolType } from "@tapp-exchange/sdk";
 import { aptosClient } from "@/utils/aptosClient";
 import { NETWORK, VIEWS_ACCOUNT_ADDRESS } from "@/constants";
 import { formatNumber8 } from "@/utils/format";
@@ -9,6 +9,7 @@ export type PoolMeta = {
   pool_addr: string;
   hook_type: number | null;
   hook_type_label: string;
+  tokens?: PoolToken[];
   assets: string[];
   assets_display: string;
   tvl: number;
@@ -83,6 +84,7 @@ export function usePool() {
               hook_type: hookType,
               hook_type_label: hookTypeLabel,
               assets: assetsAddr,
+              tokens: pool.tokens,
               assets_display: assetsSymbol.length > 0 ? assetsSymbol.join(", ") : "unknown",
               tvl: Number(pool.tvl) || 0,
               reserves,
