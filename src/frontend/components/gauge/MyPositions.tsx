@@ -1,7 +1,9 @@
 import { useState } from "react";
-import { useWallet } from "@aptos-labs/wallet-adapter-react";
+import { InputTransactionData, useWallet } from "@aptos-labs/wallet-adapter-react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { AMM_ACCOUNT_ADDRESS, CLMM_ACCOUNT_ADDRESS, STABLE_ACCOUNT_ADDRESS } from "@/constants";
+import { initTappSDK } from "@tapp-exchange/sdk";
+import { AccountAddress, Serializer } from "@aptos-labs/ts-sdk";
+import { AMM_ACCOUNT_ADDRESS, CLMM_ACCOUNT_ADDRESS, NETWORK, STABLE_ACCOUNT_ADDRESS, TAPP_ACCOUNT_ADDRESS } from "@/constants";
 import { aptosClient } from "@/utils/aptosClient";
 import { formatNumber8 } from "@/utils/format";
 import { Button } from "@/components/ui/button";
@@ -34,6 +36,63 @@ export function MyPositions({
   const queryClient = useQueryClient();
   const [isSubmittingLocal, setIsSubmittingLocal] = useState(false);
   const isBusy = isSubmitting || isSubmittingLocal;
+  const isMainnet = NETWORK?.toLowerCase() === "mainnet";
+  const tappSdk = isMainnet ? initTappSDK() : null;
+
+  const normalizeSdkPayloadArguments = (args: unknown[]) =>
+    args.map((arg) => (arg instanceof Uint8Array ? Array.from(arg) : arg));
+
+  const normalizeAddress = (value: string) => {
+    const normalized = value.toLowerCase();
+    return normalized.startsWith("0x") ? normalized : `0x${normalized}`;
+  };
+
+  const findUserPosition = async (userAddr: string, targetPositionAddr: string) => {
+    const targetNormalized = normalizeAddress(targetPositionAddr);
+    const size = 200;
+    let page = 1;
+    let scanned = 0;
+
+    while (page <= 20) {
+      const response = await tappSdk!.Position.getPositions({
+        userAddr,
+        page,
+        size,
+      });
+      const currentPage = response.data ?? [];
+      const matched = currentPage.find(
+        (entry) => normalizeAddress(entry.positionAddr) === targetNormalized,
+      );
+      if (matched) {
+        return matched;
+      }
+
+      scanned += currentPage.length;
+      if (currentPage.length === 0 || scanned >= (response.total ?? 0)) {
+        break;
+      }
+      page += 1;
+    }
+
+    return null;
+  };
+
+  const serializeStableRemoveLiquidityArgs = (
+    stablePoolId: string,
+    stablePositionAddress: string,
+    positionShares: bigint,
+    minAmounts: bigint[],
+  ) => {
+    const serializer = new Serializer();
+    serializer.serialize(AccountAddress.fromString(stablePoolId));
+    serializer.serialize(AccountAddress.fromString(stablePositionAddress));
+    serializer.serializeU8(2);
+    serializer.serializeU256(positionShares);
+    serializer.serializeU32AsUleb128(minAmounts.length);
+    minAmounts.forEach((amount) => serializer.serializeU256(amount));
+    return serializer.toUint8Array();
+  };
+
 
   const onCommit = async (positionAddress: string) => {
     if (!account || isBusy) {
@@ -99,6 +158,88 @@ export function MyPositions({
     }
   };
 
+  const onRemoveLiquidity = async (positionAddress: string) => {
+    if (!account || isBusy) {
+      return;
+    }
+
+    if (!isMainnet || !tappSdk || !TAPP_ACCOUNT_ADDRESS) {
+      toast({
+        variant: "destructive",
+        title: "Error",
+        description: "Remove liquidity through TAPP SDK is only available on mainnet.",
+      });
+      return;
+    }
+
+    try {
+      setIsSubmittingLocal(true);
+      const position = await findUserPosition(account.address.toString(), positionAddress);
+      if (!position) {
+        throw new Error("Position not found in TAPP SDK response.");
+      }
+
+      const removePayload =
+        poolType === PoolType.CLMM
+          ? tappSdk.Position.removeSingleCLMMLiquidity({
+              poolId: position.poolId,
+              positionAddr: position.positionAddr,
+              mintedShare: BigInt(position.mintedShare),
+              minAmount0: 0,
+              minAmount1: 0,
+            })
+          : poolType === PoolType.STABLE
+            ? {
+                function: `${TAPP_ACCOUNT_ADDRESS}::router::remove_liquidity`,
+                functionArguments: [
+                  Array.from(
+                    serializeStableRemoveLiquidityArgs(
+                      position.poolId,
+                      position.positionAddr,
+                      BigInt(position.mintedShare),
+                      (position.estimatedWithdrawals.length > 0
+                        ? position.estimatedWithdrawals
+                        : [{ amount: "0" }, { amount: "0" }]).map(() => 0n),
+                    ),
+                  ),
+                ],
+              }
+            : tappSdk.Position.removeSingleAMMLiquidity({
+                poolId: position.poolId,
+                positionAddr: position.positionAddr,
+                mintedShare: BigInt(position.mintedShare),
+                minAmount0: 0,
+                minAmount1: 0,
+              });
+
+      const removeTransaction: InputTransactionData = {
+        data: {
+          ...removePayload,
+          functionArguments: normalizeSdkPayloadArguments(removePayload.functionArguments ?? []),
+        } as InputTransactionData["data"],
+      };
+      const committedTransaction = await signAndSubmitTransaction(removeTransaction);
+      const executedTransaction = await aptosClient().waitForTransaction({
+        transactionHash: committedTransaction.hash,
+      });
+
+      queryClient.invalidateQueries({ queryKey: ["user-positions", account.address] });
+      queryClient.invalidateQueries({
+        queryKey: ["gauge-committed-positions", poolAddress.toLowerCase()],
+      });
+      toastTransactionSuccess(executedTransaction.hash);
+    } catch (error) {
+      console.error(error);
+      toast({
+        variant: "destructive",
+        title: "Error",
+        description: `Failed to remove liquidity${error instanceof Error ? `: ${error.message}` : "."}`,
+      });
+    } finally {
+      setIsSubmittingLocal(false);
+    }
+  };
+
   return (
     <div className="rounded-lg border border-muted-foreground bg-card p-3">
       <div className="flex flex-col gap-2">
@@ -111,6 +252,7 @@ export function MyPositions({
             onCopy={onCopy}
             onCommit={onCommit}
             onClaimFees={onClaimFees}
+            onRemoveLiquidity={onRemoveLiquidity}
             shorten={shorten}
             isSubmitting={isBusy}
             isWalletReady={isWalletReady}
@@ -128,6 +270,7 @@ type MyPositionRowProps = {
   onCopy: (value: string) => void;
   onCommit: (positionAddress: string) => void;
   onClaimFees: (positionAddress: string) => void;
+  onRemoveLiquidity: (positionAddress: string) => void;
   shorten: (value: string) => string;
   isSubmitting: boolean;
   isWalletReady: boolean;
@@ -140,6 +283,7 @@ function MyPositionRow({
   onCopy,
   onCommit,
   onClaimFees,
+  onRemoveLiquidity,
   shorten,
   isSubmitting,
   isWalletReady,
@@ -203,6 +347,15 @@ function MyPositionRow({
           onClick={() => onCommit(token.token_data_id)}
         >
           Commit
+        </Button>
+        <Button
+          size="sm"
+          variant="destructive"
+          className="h-7 px-2 text-xs"
+          disabled={!isWalletReady || isSubmitting}
+          onClick={() => onRemoveLiquidity(token.token_data_id)}
+        >
+          Remove liquidity
         </Button>
       </div>
       <div className="flex items-center gap-2 flex-wrap">
